@@ -24,7 +24,8 @@ Based on CurseForge's "Creating and Submitting a Project" guide and its Moderati
    - **License:** MIT License
    - **Logo:** `media/logo.png`
 3. **Description tab:** paste the description below.
-4. **Source:** add the GitHub repository link (for issues and source code).
+4. **Source:** https://github.com/quintanilha6/azeroth-walking-simulator
+   **Issues:** https://github.com/quintanilha6/azeroth-walking-simulator/issues
 5. After creating the project, copy its **Project ID** from the right sidebar of the project page. Add this line to `AzerothWalkingSimulator.toc` so the GitHub Action can upload releases:
    ```
    ## X-Curse-Project-ID: 123456
@@ -95,4 +96,4 @@ Install the addon and log in. A small tracker appears on screen. Type **/aws** t
 World of Warcraft has no step counter, so the addon measures how far you travel on foot and divides it by a step length: 1.4 yards when walking and 2.0 yards when running. You can adjust both in Settings to match how you like to count.
 
 ### Feedback
-Found a bug or have an idea? Open an issue on the project's GitHub page.
+Found a bug or have an idea? Open an issue on GitHub: https://github.com/quintanilha6/azeroth-walking-simulator/issues
