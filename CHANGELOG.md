@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.4] - 2026-11-09
+
+### Changed
+- Leaderboards update much faster. Your stats now reach friends and guildies within about 15 seconds of walking, instead of up to a minute. Updates are still only sent when your stats actually change.
+
 ## [2.1.3] - 2026-11-09
 
 ### Fixed
