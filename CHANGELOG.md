@@ -2,6 +2,12 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] - 2026-11-09
+
+### Fixed
+- Fixed a Lua error ("attempt to compare a secret number value") that could repeat many times a second when the game hides your movement speed from addons, for example in combat. Steps keep counting using normal run speed until the game shows the real speed again.
+- Pressing W or S during auto-run now starts counting steps straight away. Before, counting only resumed after you stopped moving.
+
 ## [2.1.0] - 2026-11-09
 
 ### Added

@@ -133,13 +133,39 @@ end
 ---------------------------------------------------------------------------
 -- On-foot check: returns a reason when movement should NOT count
 ---------------------------------------------------------------------------
+---------------------------------------------------------------------------
+-- Secret values: in some situations (combat, some instances) the game hands
+-- addons "secret" values that can't be compared or tested. Reading one would
+-- throw an error, so treat secret results as unknown.
+---------------------------------------------------------------------------
+local IsSecret = issecretvalue or function() return false end
+
+-- Calls a game function and returns its result as a plain true/false
+local function Flag(fn, ...)
+  if not fn then return false end
+  local ok, v = pcall(fn, ...)
+  if not ok or IsSecret(v) then return false end
+  return v and true or false
+end
+ns.Flag = Flag
+
+-- Player speed in yards/second. If the game hides it, estimate normal
+-- run speed while moving so steps keep counting.
+local RUN_SPEED = 7.0
+function ns.PlayerSpeed()
+  local ok, speed = pcall(GetUnitSpeed, "player")
+  if ok and type(speed) == "number" and not IsSecret(speed) then return speed end
+  if Flag(IsPlayerMoving) then return RUN_SPEED end
+  return 0
+end
+
 function ns.NotCountingReason()
-  if UnitIsDeadOrGhost("player") then return "dead" end
-  if UnitOnTaxi("player") then return "taxi" end
-  if UnitInVehicle and UnitInVehicle("player") then return "vehicle" end
-  if IsMounted() then return "mounted" end
-  if IsFlying and IsFlying() then return "flying" end
-  if IsSwimming() then return "swimming" end
+  if Flag(UnitIsDeadOrGhost, "player") then return "dead" end
+  if Flag(UnitOnTaxi, "player") then return "taxi" end
+  if Flag(UnitInVehicle, "player") then return "vehicle" end
+  if Flag(IsMounted) then return "mounted" end
+  if Flag(IsFlying) then return "flying" end
+  if Flag(IsSwimming) then return "swimming" end
   if ns.state.autorun then return "autorun" end
   if ns.state.follow then return "follow" end
   return nil
@@ -158,6 +184,18 @@ SafeHook("StartAutoRun", function() ns.state.autorun = true end)
 SafeHook("StopAutoRun", function() ns.state.autorun = false end)
 SafeHook("MoveForwardStart", function() ns.state.autorun = false end)
 SafeHook("MoveBackwardStart", function() ns.state.autorun = false end)
+
+-- Some clients move you on W/S without calling MoveForwardStart, so also
+-- check the keys bound to forward/back directly. Pressing either ends auto-run.
+local MOVE_BINDINGS = { "MOVEFORWARD", "MOVEBACKWARD" }
+function ns.MovementKeyDown()
+  if not IsKeyDown or not GetBindingKey then return false end
+  for _, binding in ipairs(MOVE_BINDINGS) do
+    local k1, k2 = GetBindingKey(binding)
+    if (k1 and Flag(IsKeyDown, k1)) or (k2 and Flag(IsKeyDown, k2)) then return true end
+  end
+  return false
+end
 
 local moveWatch = CreateFrame("Frame")
 moveWatch:RegisterEvent("PLAYER_STOPPED_MOVING")
@@ -189,8 +227,9 @@ end
 
 function ns.Tick(dt)
   local c = ns.cdb
+  if ns.state.autorun and ns.MovementKeyDown() then ns.state.autorun = false end
   local reason = ns.NotCountingReason()
-  local speed = GetUnitSpeed("player") or 0
+  local speed = ns.PlayerSpeed()
   ns.state.reason, ns.state.speed = reason, speed
 
   local s = c.current
