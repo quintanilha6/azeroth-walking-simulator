@@ -1,0 +1,31 @@
+# Builds the addon zip and uploads it to CurseForge + GitHub Releases
+# whenever a version tag (like v2.1.0) is pushed.
+#
+# Setup (once):
+#   1. GitHub repo -> Settings -> Secrets and variables -> Actions -> New secret
+#      CF_API_KEY = your token from https://legacy.curseforge.com/account/api-tokens
+#   2. Add "## X-Curse-Project-ID: <your project id>" to AzerothWalkingSimulator.toc
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and upload
+        uses: BigWigsMods/packager@v2

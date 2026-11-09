@@ -1,0 +1,17 @@
+# BigWigs packager settings: https://github.com/BigWigsMods/packager
+package-as: AzerothWalkingSimulator
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+# Not shipped to players
+ignore:
+  - README.md
+  - docs
+  - media
+  - scripts
+  - .github
+  - .gitignore
+  - .gitattributes
+  - .pkgmeta

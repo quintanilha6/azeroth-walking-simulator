@@ -1,0 +1,26 @@
+## Interface: 16001
+## Title: Azeroth Walking Simulator
+## Notes: Strava for Azeroth. Count your steps on foot, beat weekly/monthly challenges, earn ranks and achievements, and race your friends. Type /aws.
+## Author: Quinta
+## Version: @project-version@
+## IconTexture: Interface\Icons\Ability_Rogue_Sprint
+## AddonCompartmentFunc: AWS_OnCompartmentClick
+## OptionalDeps: Stride
+## SavedVariables: AWSDB
+## SavedVariablesPerCharacter: AWSCharDB
+## X-License: MIT
+## X-Category: Miscellaneous
+
+Format.lua
+Core.lua
+Sessions.lua
+Challenges.lua
+Achievements.lua
+Social.lua
+UI\Banner.lua
+UI\Tracker.lua
+UI\QuickShare.lua
+UI\SocialPage.lua
+UI\ChallengesPage.lua
+UI\TrophiesPage.lua
+UI\Window.lua
