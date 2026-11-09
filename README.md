@@ -4,7 +4,7 @@
 
 **Strava for Azeroth.** A World of Warcraft addon that counts the steps your character walks on foot, then turns them into activities, weekly and monthly challenges, ranks, achievements and leaderboards you share with your friends and guild.
 
-Type `/aws` in game.
+**[Download on CurseForge](https://www.curseforge.com/projects/1794070)** · Type `/aws` in game.
 
 ## Features
 
@@ -49,9 +49,10 @@ Players running the addon swap stats through hidden addon messages:
 
 You can turn sharing, or just the Everyone leaderboard, off in Settings.
 
-## Installing from source
+## Installing
 
-Copy this folder to `World of Warcraft/_forever_/Interface/AddOns/AzerothWalkingSimulator`.
+- **Recommended:** install from [CurseForge](https://www.curseforge.com/projects/1794070) with the CurseForge app, so you get updates automatically.
+- **From source:** copy this folder to `World of Warcraft/_forever_/Interface/AddOns/AzerothWalkingSimulator`.
 
 ## Releasing (maintainers)
 
