@@ -11,6 +11,7 @@
 ## X-License: MIT
 ## X-Category: Miscellaneous
 ## X-Website: https://github.com/quintanilha6/azeroth-walking-simulator
+## X-Curse-Project-ID: 1794070
 
 Format.lua
 Core.lua
