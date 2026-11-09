@@ -40,14 +40,56 @@ function ns.BuildTrophiesPage(page)
   local counts = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   counts:SetPoint("TOPLEFT", 4, -74)
 
-  -- Scrolling area: achievements grid, then personal records
+  rank:EnableMouse(true)
+  rank:SetScript("OnEnter", function(self) A.ShowRankTooltip(self) end)
+  rank:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- Scrolling area: rank list, achievements grid, then personal records
   local _, content = ns.MakeScroll(page, "AWSTrophyScroll", -94)
+
+  local function SectionHeader(y, text)
+    local h = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    h:SetPoint("TOPLEFT", 0, y)
+    h:SetTextColor(unpack(ns.ORANGE))
+    h:SetText(text)
+  end
+
+  -- Walker ranks: all nine, with what each needs
+  local RANK_ROW = 18
+  SectionHeader(0, "Walker ranks")
+  local rankNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  rankNote:SetPoint("TOPLEFT", 0, -17)
+  rankNote:SetText("Earned from all-time steps on this character. Each rank up shows a banner and tells your friends.")
+  local rankRows = {}
+  for i, r in ipairs(A.RANKS) do
+    local row = CreateFrame("Frame", nil, content)
+    row:SetSize(560, RANK_ROW)
+    row:SetPoint("TOPLEFT", 0, -34 - (i - 1) * RANK_ROW)
+    row.bg = row:CreateTexture(nil, "BACKGROUND")
+    row.bg:SetAllPoints()
+    row.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+    row.mark = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.mark:SetPoint("LEFT", 4, 0)
+    row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.name:SetPoint("LEFT", 24, 0)
+    row.name:SetText(("%d.  %s"):format(i, A.RankColored(i)))
+    row.need = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.need:SetPoint("LEFT", 270, 0)
+    row.need:SetText(F.Number(r[1]) .. " steps")
+    row.status = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.status:SetPoint("LEFT", 390, 0)
+    rankRows[i] = row
+  end
+  local GRID_TOP = -34 - #A.RANKS * RANK_ROW - 14
+
+  SectionHeader(GRID_TOP, "Achievements")
+  GRID_TOP = GRID_TOP - 20
 
   local tiles = {}
   for i, a in ipairs(A.LIST) do
     local t = CreateFrame("Frame", nil, content)
     t:SetSize(TILE_W - 4, TILE_H - 4)
-    t:SetPoint("TOPLEFT", ((i - 1) % 2) * TILE_W, -math.floor((i - 1) / 2) * TILE_H)
+    t:SetPoint("TOPLEFT", ((i - 1) % 2) * TILE_W, GRID_TOP - math.floor((i - 1) / 2) * TILE_H)
     t.bg = t:CreateTexture(nil, "BACKGROUND")
     t.bg:SetAllPoints()
     t.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
@@ -78,7 +120,7 @@ function ns.BuildTrophiesPage(page)
     tiles[i] = t
   end
 
-  local gridH = math.ceil(#A.LIST / 2) * TILE_H
+  local gridH = -GRID_TOP + math.ceil(#A.LIST / 2) * TILE_H
   local recHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   recHeader:SetPoint("TOPLEFT", 0, -gridH - 10)
   recHeader:SetTextColor(unpack(ns.ORANGE))
@@ -115,6 +157,22 @@ function ns.BuildTrophiesPage(page)
     else
       bar:SetValue(1)
       next:SetText("Max rank. Legendary walker!")
+    end
+
+    for i, row in ipairs(rankRows) do
+      if i == idx then
+        row.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.18)
+        row.mark:SetText(A.CHECK)
+        row.status:SetText("You are here")
+      elseif i < idx then
+        row.bg:SetVertexColor(1, 1, 1, 0.03)
+        row.mark:SetText(A.CHECK)
+        row.status:SetText("|cff33dd55Reached|r")
+      else
+        row.bg:SetVertexColor(1, 1, 1, 0)
+        row.mark:SetText("")
+        row.status:SetText(i == idx + 1 and ("|cffaaaaaa" .. A.NextRankText(steps) .. "|r") or "")
+      end
     end
 
     local w, m, champ = ns.Challenges.Counts()

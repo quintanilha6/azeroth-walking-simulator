@@ -53,7 +53,10 @@ local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 140 }, { "Rank", 182, 150 },
 local function BoardTooltip(row, d)
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
   GameTooltip:AddLine(ns.Social.ColoredName(d.guid) .. (d.me and "  (you)" or ""))
-  GameTooltip:AddLine(ns.Achievements.RankColored(d.rank))
+  local A = ns.Achievements
+  GameTooltip:AddLine(("%s  |cff888888(rank %d of %d)|r"):format(A.RankColored(d.rank), d.rank or 1, #A.RANKS))
+  local nextText = A.NextRankText(d.all or 0)
+  if nextText then GameTooltip:AddLine(nextText, 0.99, 0.6, 0.3) end
   if d.active then
     GameTooltip:AddLine(("Walking now: %s steps this session"):format(F.Number(d.sessionSteps or 0)), 0.2, 0.9, 0.3)
   elseif d.online then
@@ -69,6 +72,8 @@ local function BoardTooltip(row, d)
   AddLine("Trophies", d.trophies or 0)
   AddLine("Streak", (d.streak or 0) .. " days")
   if d.e and d.e.since and d.e.since > 0 then AddLine("Walking since", F.Day(d.e.since)) end
+  GameTooltip:AddLine(" ")
+  GameTooltip:AddLine("Ranks come from all-time steps. See them all in the Trophies tab.", 0.5, 0.5, 0.5, true)
   GameTooltip:Show()
 end
 

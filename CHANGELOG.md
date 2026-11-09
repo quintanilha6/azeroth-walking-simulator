@@ -2,6 +2,13 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.2] - 2026-11-09
+
+### Added
+- **Walker ranks list** in the Trophies tab. It shows all nine ranks, the steps each one needs, which you've reached, where you are now and how many steps until the next rank.
+- Hover your rank on the mini tracker or the Trophies rank card to see what ranks are, the full list and your progress.
+- Leaderboard tooltips show each player's rank number and how far they are from the next rank.
+
 ## [2.1.1] - 2026-11-09
 
 ### Fixed

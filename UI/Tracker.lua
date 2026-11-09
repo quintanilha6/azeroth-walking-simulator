@@ -111,6 +111,20 @@ function ns.CreateTracker()
   rankLine:SetJustifyH("LEFT")
   rankLine:SetWordWrap(false)
 
+  -- Hover the rank line to see what ranks are (still drags the tracker)
+  local rankHit = CreateFrame("Frame", nil, f)
+  rankHit:SetPoint("TOPLEFT", rankLine, "TOPLEFT", 0, 2)
+  rankHit:SetPoint("BOTTOMRIGHT", rankLine, "BOTTOMRIGHT", 0, -2)
+  rankHit:EnableMouse(true)
+  rankHit:RegisterForDrag("LeftButton")
+  rankHit:SetScript("OnEnter", function(self) ns.Achievements.ShowRankTooltip(self) end)
+  rankHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  rankHit:SetScript("OnDragStart", function() f:GetScript("OnDragStart")(f) end)
+  rankHit:SetScript("OnDragStop", function() f:GetScript("OnDragStop")(f) end)
+  rankHit:SetScript("OnMouseUp", function(_, button)
+    if button == "RightButton" then ns.ToggleWindow() end
+  end)
+
   local startBtn = ns.SmallButton(f, "Start", 58, function()
     local s = ns.cdb.current
     if not s then ns.StartSession(false)

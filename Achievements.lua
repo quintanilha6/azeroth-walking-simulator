@@ -41,6 +41,31 @@ end
 
 function A.MyRank() return A.RankIndex(ns.cdb.total.steps) end
 
+A.CHECK = "|TInterface\\RaidFrame\\ReadyCheck-Ready:12|t"
+
+-- "12,345 more steps to Footpad" (or nil at max rank)
+function A.NextRankText(steps)
+  local nextRank = A.RANKS[A.RankIndex(steps) + 1]
+  if not nextRank then return nil end
+  return ("%s more steps to %s"):format(F.Number(nextRank[1] - steps), nextRank[2])
+end
+
+-- Tooltip explaining ranks, with the full list and your progress
+function A.ShowRankTooltip(owner)
+  local steps = ns.cdb.total.steps
+  local idx = A.MyRank()
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  GameTooltip:AddLine("Walker rank: " .. A.RankColored(idx))
+  GameTooltip:AddLine("Ranks are earned from the all-time steps you walk on this character.", 1, 1, 1, true)
+  GameTooltip:AddLine(A.NextRankText(steps) or "Max rank reached. Legendary walker!", 0.99, 0.6, 0.3)
+  GameTooltip:AddLine(" ")
+  for i, r in ipairs(A.RANKS) do
+    local mark = i <= idx and (A.CHECK .. " ") or "     "
+    GameTooltip:AddDoubleLine(mark .. A.RankColored(i), F.Number(r[1]) .. " steps", 1, 1, 1, 0.7, 0.7, 0.7)
+  end
+  GameTooltip:Show()
+end
+
 ---------------------------------------------------------------------------
 -- Achievements: check(c) returns current value and goal
 ---------------------------------------------------------------------------
