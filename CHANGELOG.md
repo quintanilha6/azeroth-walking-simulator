@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.6] - 2026-11-09
+
+### Fixed
+- Holding both mouse buttons to run during auto-run now starts counting steps straight away, just like pressing W. A key bound to "Move and Steer" works too.
+
 ## [2.1.5] - 2026-11-09
 
 ### Changed

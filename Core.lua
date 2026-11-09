@@ -184,11 +184,14 @@ SafeHook("StartAutoRun", function() ns.state.autorun = true end)
 SafeHook("StopAutoRun", function() ns.state.autorun = false end)
 SafeHook("MoveForwardStart", function() ns.state.autorun = false end)
 SafeHook("MoveBackwardStart", function() ns.state.autorun = false end)
+SafeHook("MoveAndSteerStart", function() ns.state.autorun = false end)
 
--- Some clients move you on W/S without calling MoveForwardStart, so also
--- check the keys bound to forward/back directly. Pressing either ends auto-run.
-local MOVE_BINDINGS = { "MOVEFORWARD", "MOVEBACKWARD" }
+-- Some clients move you without calling the functions above, so also check
+-- directly: keys bound to forward/back/move-and-steer, or both mouse buttons
+-- held (the game's built-in "move forward and steer"). Any of them ends auto-run.
+local MOVE_BINDINGS = { "MOVEFORWARD", "MOVEBACKWARD", "MOVEANDSTEER" }
 function ns.MovementKeyDown()
+  if Flag(IsMouseButtonDown, "LeftButton") and Flag(IsMouseButtonDown, "RightButton") then return true end
   if not IsKeyDown or not GetBindingKey then return false end
   for _, binding in ipairs(MOVE_BINDINGS) do
     local k1, k2 = GetBindingKey(binding)
