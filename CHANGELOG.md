@@ -2,6 +2,17 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.5] - 2026-11-09
+
+### Changed
+- **Live leaderboards.** While you walk, friends and guildies get your stats every 5 seconds. The Everyone leaderboard updates every 30 seconds to stay within WoW's message limits.
+- Between updates, friends' steps now **count up smoothly** on your leaderboard, based on how fast they're walking. Each new update corrects the number.
+- The Social tab refreshes four times a second, so the numbers move fluidly.
+
+### Added
+- A pulsing green dot shows who is walking right now.
+- Green ▲ and red ▼ arrows show when someone moves up or down the leaderboard.
+
 ## [2.1.4] - 2026-11-09
 
 ### Changed

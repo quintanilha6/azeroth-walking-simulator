@@ -263,9 +263,17 @@ function ns.Tick(dt)
       if zone ~= "" then AddZone(s, zone) end
     end
     ns.state.moving = true
+    ns.state.instRate = steps / dt
   else
     ns.state.moving = false
+    ns.state.instRate = 0
   end
+  -- Smoothed steps per second, sent to friends so their leaderboard can count
+  -- your steps up live between updates
+  local r = ns.state.rate or 0
+  r = r + (ns.state.instRate - r) * math.min(1, dt / 2)
+  if r < 0.05 then r = 0 end
+  ns.state.rate = r
 
   uiAcc, winAcc, checkAcc = uiAcc + dt, winAcc + dt, checkAcc + dt
   if checkAcc >= 5 then
@@ -277,7 +285,9 @@ function ns.Tick(dt)
     uiAcc = 0
     if ns.Tracker then ns.Tracker:Refresh() end
   end
-  if winAcc >= 1 then
+  -- The Social tab refreshes 4x a second so friends' steps count up smoothly
+  local winEvery = (ns.Window and ns.Window.current == ns.SOCIAL_TAB) and 0.25 or 1
+  if winAcc >= winEvery then
     winAcc = 0
     if ns.Window and ns.Window:IsShown() then ns.Window:RefreshLive() end
   end

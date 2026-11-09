@@ -14,7 +14,9 @@ local VERSION = "2"
 local CHANNEL_NAME = "AWSWalkers" -- hidden channel for the "Everyone" leaderboard
 local PEOPLE_CAP = 1000
 local SEND_INTERVAL = 1.0      -- seconds between outgoing messages (server throttle)
-local BROADCAST_INTERVAL = 15  -- check for changed stats this often (only sends if they changed)
+local BROADCAST_INTERVAL = 5   -- friends/guild: check for changed stats this often (only sends if changed)
+local CHANNEL_INTERVAL = 30    -- the Everyone channel gets updates at most this often
+local LIVE_WINDOW = 12         -- max seconds to keep counting a friend's steps up without a new update
 local HEARTBEAT = 240          -- resend stats even if unchanged, so you show as online
 local FEED_CAP = 200
 ns.SOCIAL_ONLINE_WINDOW = 330  -- seconds since last message to count as online
@@ -23,7 +25,7 @@ local S = {}
 ns.Social = S
 
 local guildSet, friendSet = {}, {}
-local lastStats, lastStatsTime = nil, 0
+local lastStats, lastStatsTime, lastChannelTime = nil, 0, 0
 
 ---------------------------------------------------------------------------
 -- Names
@@ -262,7 +264,8 @@ local function StatsMsg()
   return Msg("S", class or "", UnitLevel("player") or 0, Int(today.s), Int(today.d), Int(w.steps), Int(w.dist),
     Int(m.steps), Int(m.dist), Int(c.total.steps), Int(c.total.distance), c.total.sessions, streak,
     (s and not s.paused) and 1 or 0, s and Int(s.steps) or 0, c.since, ns.Achievements.MyRank(),
-    ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges)
+    ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
+    (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0) -- steps/s x10
 end
 
 local function ActivityMsg(a)
@@ -287,7 +290,10 @@ function S.BroadcastStats(force)
   local now = GetTime()
   if not force and msg == lastStats and now - lastStatsTime < HEARTBEAT then return end
   lastStats, lastStatsTime = msg, now
-  for _, d in ipairs(Recipients(true)) do Queue(msg, d, "S") end
+  -- Friends and guild every time; the busy Everyone channel only every 30s
+  local toChannel = force or now - lastChannelTime >= CHANNEL_INTERVAL
+  if toChannel and ns.settings.globalBoard then lastChannelTime = now end
+  for _, d in ipairs(Recipients(toChannel)) do Queue(msg, d, "S") end
 end
 
 function S.OnActivityFinished(a)
@@ -417,6 +423,7 @@ local function HandleStats(guid, p)
   e.sessions, e.streak, e.active, e.sessionSteps = N(p[14]), N(p[15]), p[16] == "1", N(p[17])
   e.since, e.rank, e.ach, e.weekDone = N(p[18]), N(p[19]), N(p[20]), N(p[21])
   e.weekKey, e.badges = weekKey, N(p[23])
+  e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
   e.todayKey, e.monthKey = date("%Y-%m-%d"), "M" .. date("%Y-%m")
   CheckOvertakes(guid)
 end
@@ -549,6 +556,15 @@ local function InCategory(e, category)
   return true
 end
 
+-- Steps a friend has probably walked since their last update, from the
+-- walking speed they sent. Corrected by the next real update.
+local function LiveExtra(e)
+  if not (e.active and e.rate and e.rate > 0 and e.clock and S.IsOnline(e)) then return 0 end
+  local since = GetTime() - e.clock
+  if since < 0 then return 0 end -- clock from an earlier session (after /reload)
+  return e.rate * math.min(since, LIVE_WINDOW)
+end
+
 -- period: "today" | "week" | "month" | "all"
 function S.Leaderboard(period, category)
   local Ch = ns.Challenges
@@ -559,17 +575,20 @@ function S.Leaderboard(period, category)
     guid = S.MyGUID(), me = true, online = true, active = cur and not cur.paused, sessionSteps = cur and cur.steps or 0,
     today = ns.GetDay(todayKey).s, week = Ch.WeekSteps(), month = Ch.MonthSteps(), all = c.total.steps,
     streak = (ns.Streaks()), rank = ns.Achievements.MyRank(), trophies = ns.Achievements.Count() + #c.badges,
-    weekDone = Ch.WeekChallengesDone(),
+    weekDone = Ch.WeekChallengesDone(), walking = ns.state.moving and cur and not cur.paused,
   }
   local rows = { me }
   for guid, e in pairs(ns.db.social.people) do
     if e.all and InCategory(e, category or "everyone") then
+      local extra = LiveExtra(e)
+      local today = e.todayKey == todayKey and e.today or 0
+      local week = e.weekKey == weekKey and e.week or 0
+      local month = e.monthKey == monthKey and e.month or 0
       table.insert(rows, {
-        guid = guid, e = e, online = S.IsOnline(e), active = S.IsOnline(e) and e.active, sessionSteps = e.sessionSteps,
-        today = e.todayKey == todayKey and e.today or 0,
-        week = e.weekKey == weekKey and e.week or 0,
-        month = e.monthKey == monthKey and e.month or 0,
-        all = e.all, streak = e.streak or 0, rank = e.rank or 1, trophies = (e.ach or 0) + (e.badges or 0),
+        guid = guid, e = e, online = S.IsOnline(e), active = S.IsOnline(e) and e.active,
+        sessionSteps = (e.sessionSteps or 0) + extra, walking = extra > 0,
+        today = today + extra, week = week + extra, month = month + extra, all = e.all + extra,
+        streak = e.streak or 0, rank = e.rank or 1, trophies = (e.ach or 0) + (e.badges or 0),
         weekDone = e.weekKey == weekKey and e.weekDone or 0,
       })
     end

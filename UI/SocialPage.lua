@@ -47,7 +47,7 @@ end
 -- Leaderboard
 ---------------------------------------------------------------------------
 local PERIODS = { { "today", "Today" }, { "week", "Week" }, { "month", "Month" }, { "all", "All-time" } }
-local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 140 }, { "Rank", 182, 150 }, { "Steps", 336, 85 },
+local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 140 }, { "Rank", 182, 132 }, { "Steps", 336, 85 },
                      { "Trophies", 425, 60 }, { "Streak", 490, 60 } }
 
 local function BoardTooltip(row, d)
@@ -97,19 +97,52 @@ local function BuildBoard(box)
     r.dot:SetPoint("LEFT", 4, 0)
     r.cells = {}
     for c, col in ipairs(BOARD_COLS) do r.cells[c] = Cell(r, "GameFontHighlightSmall", col[2], col[3]) end
+    -- ▲/▼ when this player just moved up or down
+    r.arrow = r:CreateTexture(nil, "OVERLAY")
+    r.arrow:SetSize(14, 14)
+    r.arrow:SetPoint("LEFT", 320, 0)
+    r.arrow:Hide()
     r:SetScript("OnEnter", function(self) BoardTooltip(self, self.data) end)
     rows[i] = r
     return r
   end
 
+  -- Remember positions to show movement arrows (reset when the view changes)
+  local lastPos, arrowUntil, arrowUp, lastView = {}, {}, {}, nil
+
   function box:Refresh(period, category)
     local list = ns.Social.Leaderboard(period, category)
+    local view, now = period .. ":" .. category, GetTime()
+    local fresh = view ~= lastView
+    if fresh then wipe(lastPos); wipe(arrowUntil); lastView = view end
+    local pulse = 0.55 + 0.45 * math.sin(now * 5)
+
     for i, d in ipairs(list) do
       local r = GetRow(i)
       r.data = d
-      if d.active then r.dot:SetVertexColor(0.2, 0.9, 0.3)
-      elseif d.online then r.dot:SetVertexColor(0.9, 0.8, 0.2)
-      else r.dot:SetVertexColor(0.35, 0.35, 0.35) end
+      if d.walking then
+        r.dot:SetVertexColor(0.2, 0.9, 0.3)
+        r.dot:SetAlpha(pulse)
+      else
+        r.dot:SetAlpha(1)
+        if d.active then r.dot:SetVertexColor(0.2, 0.9, 0.3)
+        elseif d.online then r.dot:SetVertexColor(0.9, 0.8, 0.2)
+        else r.dot:SetVertexColor(0.35, 0.35, 0.35) end
+      end
+
+      local prev = lastPos[d.guid]
+      if not fresh and prev and prev ~= i then
+        arrowUntil[d.guid], arrowUp[d.guid] = now + 6, i < prev
+      end
+      lastPos[d.guid] = i
+      if (arrowUntil[d.guid] or 0) > now then
+        local up = arrowUp[d.guid]
+        r.arrow:SetTexture(up and "Interface\\Buttons\\Arrow-Up-Up" or "Interface\\Buttons\\Arrow-Down-Up")
+        if up then r.arrow:SetVertexColor(0.2, 1, 0.3) else r.arrow:SetVertexColor(1, 0.3, 0.3) end
+        r.arrow:Show()
+      else
+        r.arrow:Hide()
+      end
       local medal = MEDALS[i]
       r.cells[1]:SetText(i)
       if medal and d.value > 0 then r.cells[1]:SetTextColor(unpack(medal)) else r.cells[1]:SetTextColor(1, 1, 1) end
