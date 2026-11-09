@@ -2,6 +2,14 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.1.3] - 2026-11-09
+
+### Fixed
+- Removed the repeated "No player named ... is currently playing" chat message. The addon was sending hidden updates to friends on other realms using your realm name instead of theirs.
+- Friends are now reached by the exact name on your friends list, and Battle.net friends are reached through Battle.net first, which works across realms.
+- If a hidden update to a friend still fails, the error is hidden and the addon waits 10 minutes before trying that friend again.
+- Friend and guild detection for the leaderboards is more reliable across realms.
+
 ## [2.1.2] - 2026-11-09
 
 ### Added

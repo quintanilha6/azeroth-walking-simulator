@@ -81,6 +81,7 @@ local function RawSend(msg, dest)
     local id = GetChannelName(CHANNEL_NAME)
     if id and id > 0 then C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", id) end
   elseif dest.target then
+    if S.NoteWhisper then S.NoteWhisper(dest.target) end
     C_ChatInfo.SendAddonMessage(PREFIX, msg, "WHISPER", dest.target)
   end
 end
@@ -113,13 +114,29 @@ end)
 ---------------------------------------------------------------------------
 -- Who to send to: guild channel + online friends not in the guild
 ---------------------------------------------------------------------------
+-- Realm formats differ between the friends list, guild roster, Battle.net
+-- and chat, so guild/friend lookups use the name without the realm.
+local function ShortName(name)
+  if not name then return nil end
+  return strlower(name:match("^([^-]+)") or name)
+end
+
 local function UpdateGuild()
   wipe(guildSet)
   if not IsInGuild() then return end
   for i = 1, (GetNumGuildMembers() or 0) do
-    local full = S.FullName((GetGuildRosterInfo(i)))
-    if full then guildSet[full] = true end
+    local name = ShortName((GetGuildRosterInfo(i)))
+    if name then guildSet[name] = true end
   end
+end
+
+-- Hidden whispers that failed ("No player named ... is currently playing").
+-- Those friends are skipped for a while instead of failing every minute.
+local WHISPER_RETRY = 600
+local failedWhispers = {}
+local function WhisperBlocked(name)
+  local t = failedWhispers[ShortName(name)]
+  return t and GetTime() - t < WHISPER_RETRY
 end
 
 -- includeChannel: also send to the "Everyone" channel (stats and hellos only)
@@ -130,23 +147,10 @@ local function Recipients(includeChannel)
     table.insert(list, { kind = "CHANNEL", key = "CHANNEL" })
   end
   if IsInGuild() then table.insert(list, { kind = "GUILD", key = "GUILD" }) end
-  for full in pairs(guildSet) do seen[full] = true end
-  seen[S.FullName(UnitName("player"))] = true
+  for name in pairs(guildSet) do seen[name] = true end
+  seen[ShortName(UnitName("player"))] = true
 
-  if C_FriendList and C_FriendList.GetNumFriends then
-    for i = 1, C_FriendList.GetNumFriends() do
-      local info = C_FriendList.GetFriendInfoByIndex(i)
-      if info and info.name then friendSet[S.FullName(info.name)] = true end
-      if info and info.connected and info.name then
-        local full = S.FullName(info.name)
-        if full and not seen[full] then
-          seen[full] = true
-          table.insert(list, { kind = "WHISPER", target = full, key = full })
-        end
-      end
-    end
-  end
-
+  -- Battle.net friends first: their game account always reaches them, on any realm
   if BNGetNumFriends and BNSendGameData and C_BattleNet and C_BattleNet.GetFriendAccountInfo then
     for i = 1, (BNGetNumFriends() or 0) do
       local acc = C_BattleNet.GetFriendAccountInfo(i)
@@ -154,12 +158,25 @@ local function Recipients(includeChannel)
       if g and g.isOnline and g.gameAccountID and g.characterName and g.characterName ~= ""
          and g.clientProgram == BNET_CLIENT_WOW
          and (not WOW_PROJECT_ID or not g.wowProjectID or g.wowProjectID == WOW_PROJECT_ID) then
-        local full = S.FullName(g.characterName, g.realmName)
-        if full then friendSet[full] = true end
-        if full and not seen[full] then
-          seen[full] = true
-          table.insert(list, { kind = "BN", id = g.gameAccountID, key = full })
+        local short = ShortName(g.characterName)
+        friendSet[short] = true
+        if not seen[short] then
+          seen[short] = true
+          table.insert(list, { kind = "BN", id = g.gameAccountID, key = S.FullName(g.characterName, g.realmName) })
         end
+      end
+    end
+  end
+
+  -- Character friends: whisper using exactly the name the friends list gives
+  if C_FriendList and C_FriendList.GetNumFriends then
+    for i = 1, C_FriendList.GetNumFriends() do
+      local info = C_FriendList.GetFriendInfoByIndex(i)
+      local short = info and ShortName(info.name)
+      if short then friendSet[short] = true end
+      if short and info.connected and not seen[short] and not WhisperBlocked(info.name) then
+        seen[short] = true
+        table.insert(list, { kind = "WHISPER", target = info.name, key = short })
       end
     end
   end
@@ -167,8 +184,35 @@ local function Recipients(includeChannel)
 end
 
 -- Which leaderboards a person belongs to
-function S.IsGuild(e) return e and (e.viaGuild or (e.name and guildSet[e.name])) and true or false end
-function S.IsFriend(e) return e and (e.bnFriend or (e.name and friendSet[e.name])) and true or false end
+function S.IsGuild(e) return e and (e.viaGuild or (e.name and guildSet[ShortName(e.name)])) and true or false end
+function S.IsFriend(e) return e and (e.bnFriend or (e.name and friendSet[ShortName(e.name)])) and true or false end
+
+---------------------------------------------------------------------------
+-- Hide "No player named X is currently playing" when it was caused by one of
+-- our hidden whispers, and remember the failure.
+---------------------------------------------------------------------------
+local recentWhispers = {}
+S.NoteWhisper = function(target) recentWhispers[ShortName(target)] = GetTime() end
+
+local notFoundPattern
+if ERR_CHAT_PLAYER_NOT_FOUND_S then
+  notFoundPattern = "^" .. ERR_CHAT_PLAYER_NOT_FOUND_S:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
+    :gsub("%%%%s", "(.+)") .. "$"
+end
+
+if ChatFrame_AddMessageEventFilter and notFoundPattern then
+  ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, msg)
+    local who = type(msg) == "string" and msg:match(notFoundPattern)
+    if not who then return false end
+    local short = ShortName(who)
+    local sent = recentWhispers[short]
+    if sent and GetTime() - sent < 15 then
+      failedWhispers[short] = GetTime()
+      return true -- hide it: the player only sees errors from their own whispers
+    end
+    return false
+  end)
+end
 -- Friends + guild: the people overtake alerts and "Top of the Pack" care about
 local function InCircle(e) return S.IsGuild(e) or S.IsFriend(e) end
 
