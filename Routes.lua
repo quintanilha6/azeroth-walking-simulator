@@ -32,15 +32,19 @@ R.BANDS = {
   { max = 10.5, key = "fast",    label = "Fast on foot",       color = { 0.90, 0.15, 0.15 } },
   { max = 12.5, key = "mount60", label = "Mount (60%)",        color = { 0.25, 0.55, 1.00 } },
   { max = 1e9,  key = "mount100", label = "Mount (100%)",      color = { 0.70, 0.35, 1.00 } },
+  -- not a speed: moving without your own input (drawn dashed, never counted as steps)
+  { key = "auto", label = "Auto-run / follow", color = { 0.30, 0.85, 1.00 }, dashed = true },
 }
+R.SPEED_BANDS = 5
+R.AUTO_BAND = 6
 local RUN_BAND = 2
 
 function R.Band(speed)
   if not Plain(speed) then return RUN_BAND end
-  for i, b in ipairs(R.BANDS) do
-    if speed <= b.max then return i end
+  for i = 1, R.SPEED_BANDS do
+    if speed <= R.BANDS[i].max then return i end
   end
-  return #R.BANDS
+  return R.SPEED_BANDS
 end
 
 function R.BandColor(band) return (R.BANDS[band or RUN_BAND] or R.BANDS[RUN_BAND]).color end
@@ -64,7 +68,8 @@ end
 ---------------------------------------------------------------------------
 -- Recording (walking: from the step counter; mounted: drawn only, no steps)
 ---------------------------------------------------------------------------
-function R.Record(s, a, b, inst, speed)
+-- band: optional, e.g. R.AUTO_BAND for auto-run; otherwise from the speed
+function R.Record(s, a, b, inst, speed, band)
   if not s or not Plain(a) or not Plain(b) then return end
   s.route = s.route or { segs = {}, n = 0 }
   local route = s.route
@@ -74,7 +79,7 @@ function R.Record(s, a, b, inst, speed)
     if route.n >= MAX_POINTS * 0.8 then return end -- couldn't free enough room
   end
 
-  local band = R.Band(speed)
+  band = band or R.Band(speed)
   local segs = route.segs
   local seg = segs[#segs]
   if seg and seg.inst == inst and seg.v == 2 then

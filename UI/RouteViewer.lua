@@ -62,7 +62,7 @@ local function Segment(pool, frame, x1, y1, x2, y2, thickness, color, alpha)
   end
 end
 
-local function Dashed(pool, frame, x1, y1, x2, y2)
+local function Dashed(pool, frame, x1, y1, x2, y2, color, thickness)
   local dx, dy = x2 - x1, y2 - y1
   local len = math.sqrt(dx * dx + dy * dy)
   if len < 1 then return end
@@ -72,7 +72,8 @@ local function Dashed(pool, frame, x1, y1, x2, y2)
   for i = 0, count - 1 do
     local t1 = (i * step) / len
     local t2 = math.min((i * step + math.min(DASH, step * 0.6)) / len, 1)
-    Segment(pool, frame, x1 + dx * t1, y1 + dy * t1, x1 + dx * t2, y1 + dy * t2, 2, JUMP_COLOR, 0.85)
+    Segment(pool, frame, x1 + dx * t1, y1 + dy * t1, x1 + dx * t2, y1 + dy * t2, thickness or 2, color or JUMP_COLOR,
+      color and 1 or 0.85)
   end
 end
 
@@ -292,9 +293,11 @@ local view = {} -- mapID, zoom, cx, cy (center in 0..1 of the map)
 -- Legend in the bottom-right: only the speed colors this route uses
 local function UpdateLegend()
   local y = 6
-  for i = #ns.Routes.BANDS, 1, -1 do
+  for i = #card.legend, 1, -1 do
     local row = card.legend[i]
-    if card.bandsShown and card.bandsShown[i] then
+    local shown = card.bandsShown and card.bandsShown[i]
+    if i > #ns.Routes.BANDS then shown = card.jumpsShown end -- the travel row
+    if shown then
       row:ClearAllPoints()
       row:SetPoint("BOTTOMRIGHT", card.over, "BOTTOMRIGHT", -8, y)
       row:Show()
@@ -319,7 +322,7 @@ local function DrawRoute(route, toPixel)
   local firstPt, lastPt, prevEnd
   local skipped = {}
   local R = ns.Routes
-  card.bandsShown = {}
+  card.bandsShown, card.jumpsShown = {}, false
   for si, seg in ipairs(route.segs) do
     local stride = R.Stride(seg)
     local f = #seg.pts >= stride and toPixel(seg)
@@ -327,7 +330,10 @@ local function DrawRoute(route, toPixel)
       local pts = seg.pts
       local px, py = f(pts[1], pts[2])
       if si == 1 then firstPt = { px, py } end
-      if prevEnd then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
+      if prevEnd then
+        Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py)
+        card.jumpsShown = true
+      end
       local lastStart = #pts - stride + 1
       for i = 1 + stride, #pts, stride do
         local x, y = f(pts[i], pts[i + 1])
@@ -336,8 +342,12 @@ local function DrawRoute(route, toPixel)
         -- skip points too close together on screen (keeps long routes fast),
         -- but never where the color changes
         if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= lastStart or nextBand ~= band then
-          Segment(card.outline, layer, px, py, x, y, 7, BLACK, 0.7)
-          Segment(card.route, layer, px, py, x, y, 3.5, R.BandColor(band), 1)
+          if R.BANDS[band] and R.BANDS[band].dashed then
+            Dashed(card.route, layer, px, py, x, y, R.BandColor(band), 3)
+          else
+            Segment(card.outline, layer, px, py, x, y, 7, BLACK, 0.7)
+            Segment(card.route, layer, px, py, x, y, 3.5, R.BandColor(band), 1)
+          end
           card.bandsShown[band] = true
           px, py = x, y
         end
@@ -642,17 +652,24 @@ local function BuildCard()
   card.hidden:SetPoint("BOTTOMLEFT", card.hint, "TOPLEFT", 0, 3)
   card.hidden:SetTextColor(1, 0.82, 0)
   card.legend = {}
-  for i, band in ipairs(ns.Routes.BANDS) do
+  -- one row per line type; the last one is for travel jumps
+  local legendRows = {}
+  for _, band in ipairs(ns.Routes.BANDS) do legendRows[#legendRows + 1] = band end
+  legendRows[#legendRows + 1] = { label = "Teleport, flight, boat", color = JUMP_COLOR, dashed = true }
+  for i, band in ipairs(legendRows) do
     local row = CreateFrame("Frame", nil, over)
-    row:SetSize(140, 12)
+    row:SetSize(200, 12)
     local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("RIGHT")
     label:SetText(L[band.label])
-    local swatch = row:CreateTexture(nil, "OVERLAY")
-    swatch:SetTexture("Interface\\Buttons\\WHITE8X8")
-    swatch:SetSize(16, 4)
-    swatch:SetPoint("RIGHT", label, "LEFT", -5, 0)
-    swatch:SetVertexColor(unpack(band.color))
+    -- a solid swatch, or three short dashes for dashed lines
+    for d = 0, band.dashed and 2 or 0 do
+      local swatch = row:CreateTexture(nil, "OVERLAY")
+      swatch:SetTexture("Interface\\Buttons\\WHITE8X8")
+      swatch:SetSize(band.dashed and 4 or 16, band.dashed and 3 or 4)
+      swatch:SetPoint("RIGHT", label, "LEFT", -5 - d * 6, 0)
+      swatch:SetVertexColor(unpack(band.color))
+    end
     row.label = label
     row:Hide()
     card.legend[i] = row

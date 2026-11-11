@@ -427,6 +427,11 @@ function ns.Tick(dt)
       local st = ns.state
       -- hidden speed reads as running; a mount is at least the 60% band
       if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, math.max(speed, 11)) end
+    elseif (reason == "noinput" or reason == "follow") and speed > 0 and cur and not cur.paused then
+      -- Auto-run and /follow: drawn on the route as their own dashed line, no steps
+      ReadPosition()
+      local st = ns.state
+      if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, speed, ns.Routes.AUTO_BAND) end
     end
   end
   ns.state.reason, ns.state.speed = reason, speed

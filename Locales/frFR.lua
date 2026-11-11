@@ -365,4 +365,7 @@ L["Cancel"] = "Annuler"
 
 L["On a boat or zeppelin"] = "Sur un bateau ou un zeppelin"
 
+L["Auto-run / follow"] = "Course auto / suivre"
+L["Teleport, flight, boat"] = "Téléport, vol, bateau"
+
 ns.RegisterLocale("frFR", L)

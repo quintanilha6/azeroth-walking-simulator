@@ -13,6 +13,10 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
   - Text from other players is cleaned, so it can't show fake links or images in your Feed.
 - Friends' challenge completions are now cleaned up after two months instead of being saved forever.
 
+### Added
+- **Auto-run on routes:** auto-run and /follow are now drawn along the path you really took, as a cyan dashed line. They still never count as steps.
+- Teleports, hearthstones, flight paths and boats stay white dashed lines. Both now have their own entry in the route card's legend: "Auto-run / follow" and "Teleport, flight, boat".
+
 ### Changed
 - On the Everyone channel, only about 1 in 5 players answer when someone logs in. Everyone's stats still reach newcomers within a few minutes, and the addon stays fast as more people install it.
 - The Social tab no longer recalculates your own totals 4 times a second.

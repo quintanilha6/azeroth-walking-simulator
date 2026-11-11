@@ -83,7 +83,7 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 ### Routes
 - See the path you walked on a **route card with its own map**: zoom, drag, click into zones, or view the whole world.
 - Routes are **colored by speed**: walking, running, fast on foot, and mounted travel.
-- Hearthstones, portals and flight paths show as dashed lines.
+- Hearthstones, portals, flight paths and boats show as white dashed lines; auto-run shows as a cyan dashed line.
 - Open your **friends' routes** straight from the Feed, and save any route card as a **screenshot**.
 
 ### Languages
