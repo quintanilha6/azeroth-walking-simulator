@@ -3,8 +3,6 @@ local ADDON_NAME, ns = ...
 -- Default settings (saved per account in AWSDB.settings)
 ns.DEFAULTS = {
   autoMode = true,      -- start a session on login, end it on logout
-  walkStride = 1.4,     -- yards per step while walking (1 yard = 0.91 m)
-  runStride = 2.0,      -- yards per step while running
   units = "km",         -- "km" or "mi"
   trackerShown = true,
   trackerLocked = false,
@@ -18,6 +16,10 @@ ns.DEFAULTS = {
 ns.RESUME_WINDOW = 180  -- seconds: an auto session survives a /reload or quick relog
 ns.HISTORY_CAP = 500
 ns.WALK_MAX_SPEED = 4.0 -- yards/s: walking is 2.5, running is 7
+-- Fixed step lengths (yards per step, 1 yard = 0.91 m). The same for everyone,
+-- so a step means the same thing on every leaderboard and challenge.
+ns.WALK_STRIDE = 1.4
+ns.RUN_STRIDE = 2.0
 
 ns.ORANGE = { 0.99, 0.30, 0.01 }
 ns.GOLD = { 1.0, 0.82, 0.0 }
@@ -83,7 +85,8 @@ local function InitDB()
   AWSDB = AWSDB or {}
   local db = AWSDB
   db.settings = db.settings or {}
-  db.settings.stride = nil
+  -- Step length used to be a setting; it's fixed now so steps are fair
+  db.settings.stride, db.settings.walkStride, db.settings.runStride = nil, nil, nil
   CopyDefaults(db.settings, ns.DEFAULTS)
   db.chars = db.chars or {}
   db.since = db.since or time()
@@ -403,7 +406,7 @@ function ns.Tick(dt)
   if active then s.elapsed = s.elapsed + dt end
 
   if yards > 0 then
-    local stride = (speed < ns.WALK_MAX_SPEED) and ns.settings.walkStride or ns.settings.runStride
+    local stride = (speed < ns.WALK_MAX_SPEED) and ns.WALK_STRIDE or ns.RUN_STRIDE
     local steps = yards / stride
     local t = c.total
     t.steps, t.distance, t.moving = t.steps + steps, t.distance + yards, t.moving + dt

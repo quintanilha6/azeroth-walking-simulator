@@ -320,18 +320,10 @@ local function BuildSettings(page)
   Check("Chat message when a friend finishes something", "socialChat", function(on) s.socialChat = on end)
   y = y - 30
 
-  Header(page, 0, y, "Steps and display")
+  Header(page, 0, y, "Display")
   y = y - 20
   local updaters = {}
   local function Round(v) return math.floor(v * 100 + 0.5) / 100 end
-  local function StrideStepper(label, key)
-    return Stepper(label,
-      function() return ("%.2f yd  (%.2f m)"):format(s[key], s[key] * 0.9144) end,
-      function() s[key] = math.max(0.5, Round(s[key] - 0.05)); page:Refresh() end,
-      function() s[key] = math.min(4.0, Round(s[key] + 0.05)); page:Refresh() end)
-  end
-  table.insert(updaters, StrideStepper("Walking step length", "walkStride"))
-  table.insert(updaters, StrideStepper("Running step length", "runStride"))
   table.insert(updaters, Stepper("Distance units",
     function() return s.units == "mi" and "Miles" or "Kilometers" end,
     function() s.units = (s.units == "mi") and "km" or "mi"; page:Refresh(); ns.RefreshUI() end,
@@ -361,7 +353,7 @@ local function BuildSettings(page)
   help:SetJustifyH("LEFT")
   help:SetText("Steps only count while you hold movement keys (or both mouse buttons) and really move: " ..
     "not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. " ..
-    "Longer step length = fewer steps counted (affects new steps only).\n" ..
+    "Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair.\n" ..
     "Commands: /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, /aws stats, " ..
     "/aws challenges, /aws trophies, /aws social, /aws share, /aws testbanner. Right-click the tracker to open.")
 

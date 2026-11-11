@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] - 2026-11-11
+
+### Changed
+- **Step length is now fixed for everyone**: 1.4 yards per step walking and 2.0 yards running. The step-length settings have been removed, because a shorter step length gave more steps for the same walk on leaderboards, challenges, ranks and achievements. Anyone who had changed it is back to the standard values. Steps counted before this update are not changed.
+
 ## [2.2.0] - 2026-11-11
 
 ### Changed

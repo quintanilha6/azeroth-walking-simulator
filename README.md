@@ -42,12 +42,10 @@ In dungeons the game hides your position, so there the addon uses your movement 
 
 `/aws debug` prints what the counter sees once a second.
 
-Step lengths:
+Step lengths are fixed and the same for every player, so steps are fair on every leaderboard and challenge:
 
-- **Walking:** 1.4 yards per step by default
-- **Running:** 2.0 yards per step by default
-
-Both can be changed in **Settings**.
+- **Walking:** 1.4 yards per step
+- **Running:** 2.0 yards per step
 
 ## Social and privacy
 

@@ -93,7 +93,7 @@ Install the addon and log in. A small tracker appears on screen. Type **/aws** t
 | /aws stats | Print your stats in chat |
 
 ### How steps are calculated
-World of Warcraft has no step counter, so the addon measures how far you actually travel on foot and divides it by a step length: 1.4 yards when walking and 2.0 yards when running. You can adjust both in Settings to match how you like to count. Click-to-move and controller movement are not counted.
+World of Warcraft has no step counter, so the addon measures how far you actually travel on foot and divides it by a step length: 1.4 yards when walking and 2.0 yards when running. These are the same for every player, so steps are fair on all leaderboards and challenges. Click-to-move and controller movement are not counted.
 
 ### Feedback
 Found a bug or have an idea? Open an issue on GitHub: https://github.com/quintanilha6/azeroth-walking-simulator/issues
