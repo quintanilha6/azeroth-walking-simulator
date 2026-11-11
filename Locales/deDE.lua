@@ -368,4 +368,8 @@ L["On a boat or zeppelin"] = "Auf einem Schiff oder Zeppelin"
 L["Auto-run / follow"] = "Autolauf / Folgen"
 L["Teleport, flight, boat"] = "Teleport, Flug, Schiff"
 
+L["Search name"] = "Name suchen"
+L["Online now"] = "Jetzt online"
+L["No player named \"%s\" on this leaderboard."] = "Kein Spieler namens \"%s\" in dieser Rangliste."
+
 ns.RegisterLocale("deDE", L)

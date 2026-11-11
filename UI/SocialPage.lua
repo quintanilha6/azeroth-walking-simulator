@@ -180,7 +180,7 @@ local function BuildBoard(box)
     r.arrow:SetSize(14, 14)
     r.arrow:SetPoint("LEFT", 320, 0)
     r.arrow:Hide()
-    r:SetScript("OnEnter", function(self) BoardTooltip(self, self.data) end)
+    r:SetScript("OnEnter", function(self) if self.data then BoardTooltip(self, self.data) end end)
     r:RegisterForClicks("RightButtonUp")
     r:SetScript("OnClick", function(self, button)
       if button == "RightButton" then OpenPlayerMenu(self, self.data) end
@@ -192,8 +192,45 @@ local function BuildBoard(box)
   -- Remember positions to show movement arrows (reset when the view changes)
   local lastPos, arrowUntil, arrowUp, lastView = {}, {}, {}, nil
 
-  function box:Refresh(period, category)
-    local list = ns.Social.Leaderboard(period, category)
+  -- What to show: the top TOP_N, then (if you're further down) a gap and the
+  -- players around you. Searching shows every match, wherever they are.
+  -- Everyone keeps their real place on the full board.
+  local TOP_N, AROUND = 50, 2
+  local GAP = { gap = true }
+
+  local function NameOf(d)
+    local name = d.me and UnitName("player") or (d.e and d.e.name) or ""
+    return strlower(name:match("^([^-]+)") or name)
+  end
+
+  local function Visible(full, search, onlineOnly)
+    local list = {}
+    for i, d in ipairs(full) do
+      d.place = i
+      if (not onlineOnly or d.online or d.me) and (search == "" or NameOf(d):find(search, 1, true)) then
+        list[#list + 1] = d
+      end
+    end
+    if search ~= "" then
+      for i = TOP_N + 1, #list do list[i] = nil end
+      return list
+    end
+    local mine
+    for i, d in ipairs(list) do if d.me then mine = i end end
+    local shown = {}
+    for i = 1, math.min(#list, TOP_N) do shown[#shown + 1] = list[i] end
+    if mine and mine > TOP_N then
+      local from = math.max(TOP_N + 1, mine - AROUND)
+      if from > TOP_N + 1 then shown[#shown + 1] = GAP end
+      for i = from, math.min(#list, mine + AROUND) do shown[#shown + 1] = list[i] end
+    end
+    return shown
+  end
+
+  -- returns how many rows are shown
+  function box:Refresh(period, category, search, onlineOnly)
+    search = strlower(strtrim(search or ""))
+    local list = Visible(ns.Social.Leaderboard(period, category), search, onlineOnly)
     local view, now = period .. ":" .. category, GetTime()
     local fresh = view ~= lastView
     if fresh then wipe(lastPos); wipe(arrowUntil); lastView = view end
@@ -201,6 +238,17 @@ local function BuildBoard(box)
 
     for i, d in ipairs(list) do
       local r = GetRow(i)
+      if d.gap then
+        -- "..." between the top and the players around you
+        r.data = nil
+        r.dot:SetAlpha(0)
+        r.arrow:Hide()
+        for c = 1, #r.cells do r.cells[c]:SetText("") end
+        r.cells[2]:SetText("|cff888888...|r")
+        r.bg:SetVertexColor(1, 1, 1, 0)
+        r:Show()
+      else
+      local place = d.place
       r.data = d
       if d.walking then
         r.dot:SetVertexColor(0.2, 0.9, 0.3)
@@ -213,10 +261,10 @@ local function BuildBoard(box)
       end
 
       local prev = lastPos[d.guid]
-      if not fresh and prev and prev ~= i then
-        arrowUntil[d.guid], arrowUp[d.guid] = now + 6, i < prev
+      if not fresh and prev and prev ~= place then
+        arrowUntil[d.guid], arrowUp[d.guid] = now + 6, place < prev
       end
-      lastPos[d.guid] = i
+      lastPos[d.guid] = place
       if (arrowUntil[d.guid] or 0) > now then
         local up = arrowUp[d.guid]
         r.arrow:SetTexture(up and "Interface\\Buttons\\Arrow-Up-Up" or "Interface\\Buttons\\Arrow-Down-Up")
@@ -225,8 +273,8 @@ local function BuildBoard(box)
       else
         r.arrow:Hide()
       end
-      local medal = MEDALS[i]
-      r.cells[1]:SetText(i)
+      local medal = MEDALS[place]
+      r.cells[1]:SetText(place)
       if medal and d.value > 0 then r.cells[1]:SetTextColor(unpack(medal)) else r.cells[1]:SetTextColor(1, 1, 1) end
       r.cells[2]:SetText(ns.Social.ColoredName(d.guid) .. (d.me and L[" |cff888888(you)|r"] or ""))
       r.cells[3]:SetText(ns.Achievements.RankColored(d.rank))
@@ -236,9 +284,11 @@ local function BuildBoard(box)
       if d.me then r.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.12)
       else r.bg:SetVertexColor(1, 1, 1, i % 2 == 0 and 0.03 or 0) end
       r:Show()
+      end
     end
     for i = #list + 1, #rows do rows[i]:Hide() end
     content:SetHeight(math.max(1, #list * 22))
+    return #list
   end
 end
 
@@ -420,6 +470,36 @@ function ns.BuildSocialPage(page)
     catBtns[i] = b
   end
 
+  -- Top row, right: "Online now" filter and a name search (leaderboard only)
+  local ok, search = pcall(CreateFrame, "EditBox", "AWSBoardSearch", page, "SearchBoxTemplate")
+  if not ok then search = CreateFrame("EditBox", "AWSBoardSearch", page, "InputBoxTemplate") end
+  search:SetSize(110, 20)
+  search:SetPoint("TOPRIGHT", -24, 0)
+  search:SetAutoFocus(false)
+  search:SetMaxLetters(24)
+  if search.Instructions then search.Instructions:SetText(L["Search name"]) end
+  search:HookScript("OnTextChanged", function(self)
+    page.search = self:GetText() or ""
+    page:Refresh()
+  end)
+  search:HookScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  search:HookScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+  local online = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+  online:SetSize(22, 22)
+  online:SetPoint("RIGHT", search, "LEFT", -76, 0)
+  -- warnings ("Sharing is OFF") sit just left of the filter
+  info:ClearAllPoints()
+  info:SetPoint("RIGHT", online, "LEFT", -6, 0)
+  info:SetJustifyH("RIGHT")
+  local onlineLabel = online:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  onlineLabel:SetPoint("LEFT", online, "RIGHT", 0, 1)
+  onlineLabel:SetText(L["Online now"])
+  online:SetScript("OnClick", function(self)
+    page.onlineOnly = self:GetChecked() and true or false
+    page:Refresh()
+  end)
+
   local periodBtns = {}
   for i = #PERIODS, 1, -1 do
     local key, label = PERIODS[i][1], L[PERIODS[i][2]]
@@ -440,6 +520,8 @@ function ns.BuildSocialPage(page)
       b:SetShown(isBoard)
       b:SetEnabled(b.key ~= self.period)
     end
+    search:SetShown(isBoard)
+    online:SetShown(isBoard)
     for _, b in ipairs(catBtns) do
       b:SetShown(isBoard)
       b:SetEnabled(b.key ~= self.category)
@@ -447,7 +529,7 @@ function ns.BuildSocialPage(page)
       b:SetText(n > 0 and (b.label .. " (" .. n .. ")") or b.label)
     end
 
-    board:Refresh(self.period, self.category)
+    local shown = board:Refresh(self.period, self.category, self.search, self.onlineOnly)
     local items = feed:Refresh()
     local others = ns.Social.FriendCount(self.category)
     local warn = ""
@@ -455,7 +537,11 @@ function ns.BuildSocialPage(page)
     elseif self.category == "everyone" and not ns.settings.globalBoard then warn = L["|cffff5555Everyone board is OFF|r"] end
     info:SetText(warn)
 
-    if isBoard and others == 0 then
+    local searching = strtrim(self.search or "") ~= ""
+    if isBoard and searching and shown == 0 then
+      empty:SetText((L["No player named \"%s\" on this leaderboard."]):format(strtrim(self.search)))
+      empty:Show()
+    elseif isBoard and others == 0 and not searching then
       empty:SetText(L[CATEGORY_EMPTY[self.category]])
       empty:Show()
     elseif not isBoard and items == 0 then

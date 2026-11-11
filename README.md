@@ -13,7 +13,7 @@
 - **Weekly challenges** (Bronze, Silver, Gold) and **monthly challenges**, the same for everyone. Finish all three weekly ones to become **Weekly Champion**.
 - **Walker ranks**, from Novice Wanderer to Walking Simulator Champion, plus **24 achievements**.
 - **Banners** when you complete something, and toasts when your friends do.
-- **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time.
+- **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time. Shows the top 50 plus your own place, with name search and an "Online now" filter.
 - **Social feed** with Kudos, overtake alerts and a weekly recap.
 - **Quick Share** your walk to Say, Party, Raid or Guild chat in two clicks.
 - **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, colored by speed (walking, running, fast, mounted), with auto-run as a cyan dashed line and teleports or flights as white dashed lines, and save it as a screenshot. Open your friends' routes from the Feed. Recorded outdoors.

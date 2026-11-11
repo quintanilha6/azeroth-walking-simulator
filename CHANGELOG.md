@@ -2,6 +2,13 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] - 2026-11-11
+
+### Added
+- **Leaderboards made for lots of players:** the board shows the top 50. If you're further down, a "..." row follows, then your own row with your real place (for example #342) and the two players above and below you.
+- **Name search** on the leaderboard: type part of a name to find anyone on the board, even outside the top 50, with their real place.
+- **"Online now" filter:** show only players who are online right now. Everyone keeps their real place on the full board.
+
 ## [2.4.4] - 2026-11-11
 
 ### Fixed
