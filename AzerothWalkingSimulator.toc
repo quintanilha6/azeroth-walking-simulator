@@ -19,8 +19,6 @@ Locales\esES.lua
 Locales\frFR.lua
 Locales\deDE.lua
 Locales\itIT.lua
-Locales\fiFI.lua
-Locales\svSE.lua
 Format.lua
 Core.lua
 Sessions.lua
