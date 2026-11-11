@@ -204,6 +204,32 @@ end
 function S.IsGuild(e) return e and (e.viaGuild or (e.name and guildSet[ShortName(e.name)])) and true or false end
 function S.IsFriend(e) return e and (e.bnFriend or (e.name and friendSet[ShortName(e.name)])) and true or false end
 
+-- The surest way to reach one person. Guildies: the guild channel (messages
+-- say who they're for, others ignore them). Friends: Battle.net, or the exact
+-- name from the friends list. A whisper to the name we built ourselves is the
+-- last resort: it fails for some names and realms.
+function S.DestFor(e)
+  if not e then return nil end
+  local short = e.name and ShortName(e.name)
+  if IsInGuild() and short and guildSet[short] then return { kind = "GUILD", key = "GUILD" } end
+  if short then
+    for _, d in ipairs(Recipients(false)) do
+      if (d.kind == "BN" or d.kind == "WHISPER") and ShortName(d.key or d.target) == short then return d end
+    end
+  end
+  return e.dest
+end
+
+-- /aws debug net: prints what route sharing and kudos send and receive
+local function NetLog(fmt, ...)
+  if ns.netDebug then ns.Print("|cff88ccff[net]|r " .. fmt:format(...)) end
+end
+S.NetLog = NetLog
+local function DestText(d)
+  if not d then return "nobody" end
+  return d.kind .. (d.target and (" " .. d.target) or d.id and (" #" .. d.id) or "")
+end
+
 ---------------------------------------------------------------------------
 -- Hide "No player named X is currently playing" when it was caused by one of
 -- our hidden whispers, and remember the failure.
@@ -225,6 +251,7 @@ if ChatFrame_AddMessageEventFilter and notFoundPattern then
     local sent = recentWhispers[short]
     if sent and GetTime() - sent < 15 then
       failedWhispers[short] = GetTime()
+      if ns.netDebug then ns.Print("|cff88ccff[net]|r hidden whisper failed: " .. who) end
       return true -- hide it: the player only sees errors from their own whispers
     end
     return false
@@ -281,7 +308,7 @@ local function StatsMsg()
     (s and not s.paused) and 1 or 0, s and Int(s.steps) or 0, c.since, ns.Achievements.MyRank(),
     ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
     (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0, -- steps/s x10
-    S.FEATURES)
+    S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"))
 end
 
 local function ActivityMsg(a)
@@ -300,11 +327,23 @@ end
 ---------------------------------------------------------------------------
 local function Sharing() return ns.settings and ns.settings.shareEnabled end
 
+-- Cheap summary of what's in the stats message, so the full message (which
+-- adds up your week, month and streak) is only built when something changed
+local lastFingerprint
+local function StatsFingerprint()
+  local c, s = ns.cdb, ns.cdb.current
+  return table.concat({ Int(c.total.steps), s and (s.paused and "p" or Int(s.steps)) or "-", #c.badges,
+    ns.Achievements.Count(), date("%Y-%m-%d"), UnitLevel("player") or 0,
+    s and not s.paused and Int((ns.state.rate or 0) * 10) or 0 }, ":")
+end
+
 function S.BroadcastStats(force)
   if not Sharing() then return end
-  local msg = StatsMsg()
   local now = GetTime()
-  if not force and msg == lastStats and now - lastStatsTime < HEARTBEAT then return end
+  local fp = StatsFingerprint()
+  if not force and fp == lastFingerprint and now - lastStatsTime < HEARTBEAT then return end
+  lastFingerprint = fp
+  local msg = StatsMsg()
   lastStats, lastStatsTime = msg, now
   -- Friends and guild every time; the busy Everyone channel only every 30s
   local toChannel = force or now - lastChannelTime >= CHANNEL_INTERVAL
@@ -362,6 +401,8 @@ function S.HandleRouteRequest(guid, p, dest)
   if not Sharing() then return end
   local id = tonumber(p[4])
   if not id then return end
+  if p[5] and p[5] ~= "" and p[5] ~= S.MyGUID() then return end -- asked someone else (guild channel)
+  dest = S.DestFor(ns.db.social.people[guid]) or dest
   local seen = guid .. ":" .. id
   if answered[seen] and GetTime() - answered[seen] < REQUEST_COOLDOWN then return end
   answered[seen] = GetTime()
@@ -372,7 +413,10 @@ function S.HandleRouteRequest(guid, p, dest)
     if activity then break end
     if a.start == id then activity = a end
   end
-  local text = activity and ns.Routes.Encode(activity.route)
+  local ok, text = pcall(ns.Routes.Encode, activity and activity.route)
+  if not ok then NetLog("route encode error: %s", tostring(text)); text = nil end
+  NetLog("%s asked for route %d: %s, replying via %s", S.Short(ns.db.social.people[guid].name), id,
+    not activity and "no such activity" or text and (#text .. " chars") or "no route", DestText(dest))
   if not text then
     Queue(Msg("RP", id, 0, 0, ""), dest, true)
     return
@@ -390,6 +434,7 @@ function S.HandleRouteReply(guid, p)
   local req = key and pendingRoutes[key]
   if not req then return end
   local index, total = tonumber(p[5]) or 0, tonumber(p[6]) or 0
+  NetLog("route piece %d / %d", index, total)
   if total == 0 then
     pendingRoutes[key] = nil
     req.onDone(nil, "none")
@@ -417,6 +462,7 @@ local function WatchRequest(key, req)
     if GetTime() < req.deadline then return WatchRequest(key, req) end
     pendingRoutes[key] = nil
     local e = ns.db.social.people[req.item.from]
+    NetLog("no answer for route %d after %ds", req.item.id, ROUTE_WAIT)
     -- an answer would have come from a version that can share routes
     req.onDone(nil, (e and (e.features or 0) >= 1) and "offline" or "noanswer")
   end)
@@ -427,7 +473,9 @@ end
 -- "none" (no route), "offline", or "noanswer" (maybe an older version)
 function S.RequestRoute(item, onProgress, onDone)
   local e = ns.db.social.people[item.from]
-  local dest = e and e.dest
+  local dest = S.DestFor(e)
+  NetLog("asking %s for route %d via %s (last heard %ss ago, features %s)", S.Short(e and e.name),
+    item.id, DestText(dest), e and e.updated and (time() - e.updated) or "?", tostring(e and e.features))
   if not dest or not S.IsOnline(e) then return onDone(nil, "offline") end
   local key = item.from .. ":" .. item.id
   local req = pendingRoutes[key]
@@ -439,7 +487,7 @@ function S.RequestRoute(item, onProgress, onDone)
   req = { item = item, chunks = {}, got = 0, onProgress = onProgress, onDone = onDone,
           deadline = GetTime() + ROUTE_WAIT }
   pendingRoutes[key] = req
-  Queue(Msg("RQ", item.id), dest, true)
+  Queue(Msg("RQ", item.id, item.from), dest, true)
   WatchRequest(key, req)
 end
 
@@ -447,9 +495,10 @@ function S.GiveKudos(item)
   if item.kudos or item.mine or item.event then return end
   item.kudos = true
   local p = ns.db.social.people[item.from]
-  local dest = p and p.dest
+  local dest = S.DestFor(p)
   if not dest then return end
-  Queue(Msg("K", item.id), dest)
+  NetLog("kudos to %s via %s", S.Short(p.name), DestText(dest))
+  Queue(Msg("K", item.id, item.from), dest)
   ns.cdb.kudosGiven = ns.cdb.kudosGiven + 1
   ns.Achievements.Check()
   ns.OnSocialChanged()
@@ -526,8 +575,24 @@ end
 ---------------------------------------------------------------------------
 local function N(v) return tonumber(v) or 0 end
 
+-- No one can walk more than this on foot in a day (8 yd/s for 24 h, 2 yd steps)
+local DAY_MAX = 350000
+local EPOCH = time({ year = 2026, month = 11, day = 1, hour = 0 }) -- before the first release
+
+local function Plausible(p)
+  local today, week, month, all = N(p[6]), N(p[8]), N(p[10]), N(p[12])
+  local days = math.floor((time() - math.max(N(p[18]), EPOCH)) / 86400) + 2
+  return today <= DAY_MAX and week <= 7 * DAY_MAX and month <= 31 * DAY_MAX and all <= days * DAY_MAX
+    and N(p[17]) <= 7 * DAY_MAX and N(p[24]) <= 80 and today <= week + 1 and week <= all + 1
+end
+
 local function HandleStats(guid, p)
   local e = ns.db.social.people[guid]
+  if not Plausible(p) then
+    e.flagged = true -- impossible numbers: kept off the leaderboards
+    return
+  end
+  e.flagged = nil
   local weekKey = p[22] or ""
   if e.weekKey and e.weekKey ~= weekKey then
     e.prevWeekKey, e.prevWeek = e.weekKey, e.week -- keep last week for the recap
@@ -541,13 +606,15 @@ local function HandleStats(guid, p)
   e.weekKey, e.badges = weekKey, N(p[23])
   e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
   e.features = N(p[25]) -- 0 = a version before 2.4.1
-  e.todayKey, e.monthKey = date("%Y-%m-%d"), "M" .. date("%Y-%m")
+  -- the sender's own day and month (older versions: the time it arrived)
+  e.todayKey = (p[26] and p[26] ~= "") and p[26] or date("%Y-%m-%d")
+  e.monthKey = (p[27] and p[27] ~= "") and p[27] or ("M" .. date("%Y-%m"))
   CheckOvertakes(guid)
 end
 
 local function HandleActivity(guid, p)
   local id = tonumber(p[4])
-  if not id then return end
+  if not id or ns.db.social.people[guid].flagged or N(p[5]) > 7 * DAY_MAX then return end
   local feed = ns.db.social.feed
   for _, f in ipairs(feed) do
     if f.from == guid and f.id == id and not f.event then return end
@@ -568,11 +635,16 @@ local function HandleActivity(guid, p)
 end
 
 local function HandleKudos(guid, p)
+  if p[5] and p[5] ~= "" and p[5] ~= S.MyGUID() then return end -- for someone else (guild channel)
   local id = tonumber(p[4])
+  local from = ShortName(ns.db.social.people[guid].name)
   for _, a in ipairs(ns.cdb.history) do
     if a.start == id then
       a.kudos = a.kudos or {}
-      for _, n in ipairs(a.kudos) do if n == guid then return end end
+      for _, n in ipairs(a.kudos) do
+        local other = ns.db.social.people[n]
+        if n == guid or (other and ShortName(other.name) == from) then return end -- one per person
+      end
       table.insert(a.kudos, guid)
       ns.cdb.kudosReceived = ns.cdb.kudosReceived + 1
       local text = (L["%s gave you kudos for your %s-step activity!"]):format(S.ColoredName(guid), F.Number(a.steps))
@@ -635,9 +707,16 @@ local function OnMessage(msg, name, dest, via)
   if p[2] ~= VERSION or not guid or guid == "" or guid == S.MyGUID() then return end
   -- From strangers on the Everyone channel, only stats and hellos are used
   if via == "CHANNEL" and kind ~= "S" and kind ~= "H" then return end
+  if not guid:match("^Player%-") then return end -- only real player IDs
 
   local people = ns.db.social.people
   local e = people[guid]
+  -- A GUID belongs to one character: ignore it coming from someone else
+  -- (a renamed character is accepted once it's been quiet for a day)
+  if e and e.name and name and ShortName(e.name) ~= ShortName(name) and time() - (e.updated or 0) < 86400 then
+    NetLog("ignored a message claiming to be %s from %s", S.Short(e.name), S.Short(name))
+    return
+  end
   if not e then
     e = {}
     people[guid] = e
@@ -702,7 +781,7 @@ function S.Leaderboard(period, category)
   }
   local rows = { me }
   for guid, e in pairs(ns.db.social.people) do
-    if e.all and InCategory(e, category or "everyone") then
+    if e.all and not e.flagged and InCategory(e, category or "everyone") then
       local extra = LiveExtra(e)
       local today = e.todayKey == todayKey and e.today or 0
       local week = e.weekKey == weekKey and e.week or 0
@@ -742,7 +821,7 @@ end
 function S.FriendCount(category)
   local n = 0
   for _, e in pairs(ns.db.social.people) do
-    if e.all and InCategory(e, category or "everyone") then n = n + 1 end
+    if e.all and not e.flagged and InCategory(e, category or "everyone") then n = n + 1 end
   end
   return n
 end

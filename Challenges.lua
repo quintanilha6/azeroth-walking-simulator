@@ -123,14 +123,18 @@ function C.Gather(p)
     end
   end
   for _ in pairs(zones) do m.zones = m.zones + 1 end
+  -- an activity belongs to the period it finished in (a walk past midnight
+  -- on Sunday counts for the new week, like its steps)
   for _, s in ipairs(c.history) do
-    if s.start >= p.startTs and s.start < p.endTs then
+    local t = s.finish or s.start
+    if t >= p.startTs and t < p.endTs then
       if s.steps >= 5000 then m.acts5k = m.acts5k + 1 end
       if s.steps > m.bestAct then m.bestAct = s.steps end
     end
   end
   local cur = c.current
-  if cur and cur.start >= p.startTs and cur.steps > m.bestAct then m.bestAct = cur.steps end
+  local now = time()
+  if cur and now >= p.startTs and now < p.endTs and cur.steps > m.bestAct then m.bestAct = cur.steps end
   return m
 end
 

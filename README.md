@@ -46,7 +46,7 @@ WoW has no step counter, so the addon measures how far you really move on foot a
 
 In dungeons the game hides your position, so there the addon uses your movement speed instead. You still need to hold the keys, and counting pauses if you haven't moved the mouse, turned, strafed, jumped, cast or fought for 5 seconds. Nothing counts while you're AFK.
 
-`/aws debug` prints what the counter sees once a second.
+`/aws debug` prints what the counter sees once a second. `/aws debug net` prints what route sharing and kudos send and receive.
 
 Step lengths are fixed and the same for every player, so steps are fair on every leaderboard and challenge:
 

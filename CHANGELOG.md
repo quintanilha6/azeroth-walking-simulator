@@ -2,6 +2,22 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.2] - 2026-11-11
+
+### Fixed
+- **Shared routes and kudos now reach guildies and friends reliably.** They were sent as hidden whispers to a name the addon built itself, which fails for some names and realms, so the route never arrived. They now go through the guild channel for guildies, and Battle.net or your friends list for friends, the same way stats do. Both players need this version.
+- **Leaderboards ignore impossible numbers**, such as more steps in a day than anyone can walk, so nobody can fake their way to the top.
+- A player can no longer pretend to be someone else, or give the same walk kudos many times from made-up characters.
+- A friend's "Today" steps no longer show up on the wrong day around midnight or across time zones.
+- A walk that goes past midnight on Sunday now counts for the new week's challenges, like its steps do.
+- Explored zones are now saved by map, not by name, so changing the game's language no longer counts them twice. Your existing zones are converted automatically.
+
+### Changed
+- Less work in the background: your stats, challenges and achievements are only recalculated when something changed.
+
+### Added
+- `/aws debug net` prints what route sharing and kudos send and receive, to help track down problems.
+
 ## [2.4.1] - 2026-11-11
 
 ### Fixed

@@ -371,6 +371,7 @@ activityWatch:SetScript("OnEvent", MarkActive)
 -- hides your position), only while you hold movement keys yourself
 ---------------------------------------------------------------------------
 local uiAcc, winAcc, checkAcc = 0, 0, 0
+local lastCheck
 
 local function AddZone(s, zone)
   for _, z in ipairs(s.zones) do
@@ -445,10 +446,12 @@ function ns.Tick(dt)
     day.s, day.d = day.s + steps, day.d + yards
 
     local zone = ns.state.zone
-    if zone ~= "" then
+    -- explored zones are kept by map ID, so they're the same in every game language
+    local zkey = ns.state.zoneKey or (zone ~= "" and zone) or nil
+    if zkey then
       day.z = day.z or {}
-      day.z[zone] = true
-      if not c.zones[zone] then c.zones[zone] = time() end
+      day.z[zkey] = true
+      if not c.zones[zkey] then c.zones[zkey] = time() end
     end
 
     if active then
@@ -473,8 +476,13 @@ function ns.Tick(dt)
   uiAcc, winAcc, checkAcc = uiAcc + dt, winAcc + dt, checkAcc + dt
   if checkAcc >= 5 then
     checkAcc = 0
-    ns.Challenges.Check()
-    ns.Achievements.Check()
+    -- challenges and achievements only move when you walk (or a new day starts)
+    local fp = math.floor(c.total.steps) .. ":" .. date("%Y-%m-%d")
+    if fp ~= lastCheck then
+      lastCheck = fp
+      ns.Challenges.Check()
+      ns.Achievements.Check()
+    end
   end
   if uiAcc >= 0.25 then
     uiAcc = 0
@@ -518,6 +526,58 @@ end
 ---------------------------------------------------------------------------
 local function UpdateZone()
   ns.state.zone = GetRealZoneText() or ""
+  ns.state.zoneKey = ns.ZoneMapID()
+  if ns.state.zoneKey then ns.MigrateZoneNames() end
+end
+
+-- The zone (or dungeon) you're in, as a map ID; nil if the game doesn't say
+function ns.ZoneMapID()
+  if not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetMapInfo and Enum and Enum.UIMapType) then return nil end
+  local ok, id = pcall(C_Map.GetBestMapForUnit, "player")
+  if not ok or not Plain(id) then return nil end
+  for _ = 1, 5 do
+    local info = C_Map.GetMapInfo(id)
+    if not info then return nil end
+    local t = info.mapType
+    if t == Enum.UIMapType.Zone or t == Enum.UIMapType.Dungeon then return id end
+    if t < Enum.UIMapType.Zone or not info.parentMapID or info.parentMapID == 0 then return nil end
+    id = info.parentMapID -- a small sub-map: use the zone it's in
+  end
+end
+
+-- Zones saved by name before 2.4.2 become map IDs (names in this game language)
+function ns.MigrateZoneNames()
+  local c = ns.cdb
+  if not c or c.zonesById or not (C_Map and C_Map.GetMapChildrenInfo and Enum and Enum.UIMapType) then return end
+  local top = ns.ZoneMapID()
+  for _ = 1, 10 do
+    local info = top and C_Map.GetMapInfo(top)
+    if not info or not info.parentMapID or info.parentMapID == 0 then break end
+    top = info.parentMapID
+  end
+  if not top then return end -- try again next login (e.g. logged in inside a dungeon)
+  local byName = {}
+  for _, m in ipairs(C_Map.GetMapChildrenInfo(top, nil, true) or {}) do
+    if (m.mapType == Enum.UIMapType.Zone or m.mapType == Enum.UIMapType.Dungeon) and m.name and not byName[m.name] then
+      byName[m.name] = m.mapID
+    end
+  end
+  local function Convert(set, keepEarliest)
+    local moved = {}
+    for k, v in pairs(set) do
+      if type(k) == "string" and byName[k] then moved[k] = v end
+    end
+    for name, v in pairs(moved) do
+      local id = byName[name]
+      set[name] = nil
+      if keepEarliest and set[id] then set[id] = math.min(set[id], v) else set[id] = v end
+    end
+  end
+  Convert(c.zones, true)
+  for _, day in pairs(c.daily) do
+    if day.z then Convert(day.z) end
+  end
+  c.zonesById = true
 end
 
 driver:RegisterEvent("ADDON_LOADED")
@@ -625,6 +685,10 @@ local function Slash(msg)
     -- the walk in progress if it has a route, otherwise the last activity
     local cur = ns.cdb.current
     ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
+  elseif cmd == "debug" and arg == "net" then
+    -- route sharing and kudos traffic, for tracking down sharing problems
+    ns.netDebug = not ns.netDebug
+    ns.Print("Network debug " .. (ns.netDebug and "ON. Type /aws debug net again to stop." or "OFF."))
   elseif cmd == "debug" then
     ns.debug = not ns.debug
     ns.debugInfo = { t = 0, yards = 0, speed = 0 }
