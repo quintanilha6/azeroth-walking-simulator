@@ -359,8 +359,9 @@ local function BuildSettings(page)
   help:SetPoint("TOPLEFT", 0, y)
   help:SetWidth(WIDTH - 50)
   help:SetJustifyH("LEFT")
-  help:SetText("Only steps you walk yourself count: not mounted, flight paths, vehicles, swimming, dead, " ..
-    "auto-run or /follow. Longer step length = fewer steps counted (affects new steps only).\n" ..
+  help:SetText("Steps only count while you hold movement keys (or both mouse buttons) and really move: " ..
+    "not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. " ..
+    "Longer step length = fewer steps counted (affects new steps only).\n" ..
     "Commands: /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, /aws stats, " ..
     "/aws challenges, /aws trophies, /aws social, /aws share, /aws testbanner. Right-click the tracker to open.")
 

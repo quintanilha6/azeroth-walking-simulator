@@ -2,6 +2,20 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-11-11
+
+### Changed
+- **New, fairer step counting.** Steps only count when both are true:
+  - you're holding a movement key yourself (forward, back, strafe, move-and-steer) or both mouse buttons
+  - your position is really changing
+- Distance now comes from how far you actually move, not just your movement speed. In dungeons, where the game hides your position, speed is still used, but you must hold the keys.
+- Click-to-move and controller movement no longer count.
+
+### Fixed
+- Auto-run could still count steps in some cases: running into a wall, after loading screens, after steering with both mouse buttons, with other auto-run keybinds, or from macros. Auto-run never counts now, however it's started.
+- Pushing into a wall or running in place no longer counts. The tracker shows "Not counting: Blocked".
+- **Half Marathon**, **Marathon**, **Early Bird** and **Night Owl** now include the activity you're walking right now. They unlock during the walk instead of only after you press Finish, and their progress on the Trophies tab moves live.
+
 ## [2.1.6] - 2026-11-09
 
 ### Fixed

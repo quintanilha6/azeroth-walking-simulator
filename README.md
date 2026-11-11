@@ -33,7 +33,14 @@
 
 ## How steps are counted
 
-WoW has no step counter, so the addon measures how far you move on foot (speed × time) and divides by a step length:
+WoW has no step counter, so the addon measures how far you really move on foot and divides by a step length. Steps only count when **both** of these are true:
+
+- You're holding a movement key yourself (forward, back, strafe or move-and-steer) or both mouse buttons. Auto-run, click-to-move and controllers don't count.
+- Your position is actually changing. Running into a wall or in place doesn't count.
+
+In dungeons the game hides your position, so there the addon uses your movement speed instead (you still need to hold the keys).
+
+Step lengths:
 
 - **Walking:** 1.4 yards per step by default
 - **Running:** 2.0 yards per step by default

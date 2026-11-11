@@ -21,12 +21,12 @@ ns.WALK_MAX_SPEED = 4.0 -- yards/s: walking is 2.5, running is 7
 
 ns.ORANGE = { 0.99, 0.30, 0.01 }
 ns.GOLD = { 1.0, 0.82, 0.0 }
-ns.state = { reason = nil, speed = 0, moving = false, zone = "", autorun = false, follow = false }
+ns.state = { reason = nil, speed = 0, moving = false, zone = "", follow = false }
 
 ns.REASON_TEXT = {
   dead = "Dead", taxi = "Flight path", vehicle = "Vehicle",
   mounted = "Mounted", flying = "Flying", swimming = "Swimming",
-  autorun = "Auto-run", follow = "Following",
+  follow = "Following", noinput = "Auto-run", blocked = "Blocked",
 }
 
 function ns.Print(msg)
@@ -166,58 +166,96 @@ function ns.NotCountingReason()
   if Flag(IsMounted) then return "mounted" end
   if Flag(IsFlying) then return "flying" end
   if Flag(IsSwimming) then return "swimming" end
-  if ns.state.autorun then return "autorun" end
   if ns.state.follow then return "follow" end
   return nil
 end
 
----------------------------------------------------------------------------
--- Auto-run detection: only steps you walk yourself count.
--- Auto-run is toggled by ToggleAutoRun (Num Lock / key binding) and cancelled
--- by pressing forward or back, or by stopping.
----------------------------------------------------------------------------
-local function SafeHook(name, fn)
-  if type(_G[name]) == "function" then hooksecurefunc(name, fn) end
-end
-SafeHook("ToggleAutoRun", function() ns.state.autorun = not ns.state.autorun end)
-SafeHook("StartAutoRun", function() ns.state.autorun = true end)
-SafeHook("StopAutoRun", function() ns.state.autorun = false end)
-SafeHook("MoveForwardStart", function() ns.state.autorun = false end)
-SafeHook("MoveBackwardStart", function() ns.state.autorun = false end)
-SafeHook("MoveAndSteerStart", function() ns.state.autorun = false end)
+local followWatch = CreateFrame("Frame")
+followWatch:RegisterEvent("AUTOFOLLOW_BEGIN")
+followWatch:RegisterEvent("AUTOFOLLOW_END")
+followWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
+followWatch:SetScript("OnEvent", function(_, event)
+  ns.state.follow = (event == "AUTOFOLLOW_BEGIN")
+end)
 
--- Some clients move you without calling the functions above, so also check
--- directly: keys bound to forward/back/move-and-steer, or both mouse buttons
--- held (the game's built-in "move forward and steer"). Any of them ends auto-run.
-local MOVE_BINDINGS = { "MOVEFORWARD", "MOVEBACKWARD", "MOVEANDSTEER" }
-function ns.MovementKeyDown()
+---------------------------------------------------------------------------
+-- Rule 1: you must be moving yourself.
+-- Steps only count while a key bound to forward, back, strafe or
+-- move-and-steer is held, or both mouse buttons. That rules out auto-run
+-- however it was started (any key, mouse button, macro or addon).
+---------------------------------------------------------------------------
+local MOVE_BINDINGS = { "MOVEFORWARD", "MOVEBACKWARD", "STRAFELEFT", "STRAFERIGHT", "MOVEANDSTEER" }
+local MODIFIERS = { SHIFT = IsShiftKeyDown, CTRL = IsControlKeyDown, ALT = IsAltKeyDown, META = IsMetaKeyDown }
+local MOUSE_NAMES = { "LeftButton", "RightButton", "MiddleButton" }
+
+-- Is this key binding ("W", "SHIFT-W", "BUTTON4"...) being held right now?
+local function BindingHeld(binding)
+  local key = binding
+  while true do
+    local mod, rest = key:match("^(%u+)%-(.+)$")
+    if not (mod and MODIFIERS[mod]) then break end
+    if not Flag(MODIFIERS[mod]) then return false end
+    key = rest
+  end
+  local button = tonumber(key:match("^BUTTON(%d+)$"))
+  if button then
+    return Flag(IsMouseButtonDown, MOUSE_NAMES[button] or ("Button" .. button))
+  end
+  return Flag(IsKeyDown, key)
+end
+
+function ns.HoldingMoveInput()
   if Flag(IsMouseButtonDown, "LeftButton") and Flag(IsMouseButtonDown, "RightButton") then return true end
-  if not IsKeyDown or not GetBindingKey then return false end
-  for _, binding in ipairs(MOVE_BINDINGS) do
-    local k1, k2 = GetBindingKey(binding)
-    if (k1 and Flag(IsKeyDown, k1)) or (k2 and Flag(IsKeyDown, k2)) then return true end
+  if not IsKeyDown or not GetBindingKey then return true end -- can't check on this client: don't block
+  for _, name in ipairs(MOVE_BINDINGS) do
+    local k1, k2 = GetBindingKey(name)
+    if (k1 and BindingHeld(k1)) or (k2 and BindingHeld(k2)) then return true end
   end
   return false
 end
 
-local moveWatch = CreateFrame("Frame")
-moveWatch:RegisterEvent("PLAYER_STOPPED_MOVING")
-moveWatch:RegisterEvent("AUTOFOLLOW_BEGIN")
-moveWatch:RegisterEvent("AUTOFOLLOW_END")
-moveWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
-moveWatch:SetScript("OnEvent", function(_, event)
-  if event == "AUTOFOLLOW_BEGIN" then
-    ns.state.follow = true
-  elseif event == "AUTOFOLLOW_END" then
-    ns.state.follow = false
-  else
-    ns.state.autorun = false
-    if event == "PLAYER_ENTERING_WORLD" then ns.state.follow = false end
+---------------------------------------------------------------------------
+-- Rule 2: your position must really change.
+-- The game reports run speed even while you push into a wall, so compare
+-- against where you actually are. Position is hidden in instances; there we
+-- fall back to speed (rule 1 still applies).
+---------------------------------------------------------------------------
+local function ReadPosition()
+  if not UnitPosition then return nil end
+  local ok, y, x, _, inst = pcall(UnitPosition, "player")
+  if not ok or type(x) ~= "number" or type(y) ~= "number" or IsSecret(x) or IsSecret(y) then return nil end
+  if IsSecret(inst) then inst = nil end
+  return x, y, inst
+end
+
+-- Last confirmed position, and how far speed says we should have gone since
+local anchorX, anchorY, anchorInst, pending = nil, nil, nil, 0
+local function SetAnchor(x, y, inst) anchorX, anchorY, anchorInst, pending = x, y, inst, 0 end
+
+-- Yards to count this tick, plus "blocked" when pushing without moving
+local function MeasuredYards(speed, dt)
+  local x, y, inst = ReadPosition()
+  if not x then SetAnchor(nil) return speed * dt end                 -- position hidden: trust speed
+  if not anchorX or anchorInst ~= inst then SetAnchor(x, y, inst) return 0 end -- first reading / new zone
+  pending = pending + speed * dt
+  local moved = math.sqrt((x - anchorX) ^ 2 + (y - anchorY) ^ 2)
+  if moved >= pending * 0.25 then
+    SetAnchor(x, y, inst)
+    return math.min(moved, pending * 1.25) -- cap teleports, knockbacks, boats
   end
-end)
+  if pending >= speed * 0.6 then -- over half a second of pushing without really moving
+    SetAnchor(x, y, inst)
+    return 0, "blocked"
+  end
+  return 0 -- wait a moment: the position can lag a frame behind
+end
+
+-- Don't credit movement made while not counting (auto-run, mounted...)
+local function ResetAnchor() SetAnchor(ReadPosition()) end
 
 ---------------------------------------------------------------------------
--- Tracking: distance = speed (yards/s) * time, only while on foot
+-- Tracking: distance actually moved on foot (or speed x time where the game
+-- hides your position), only while you hold movement keys yourself
 ---------------------------------------------------------------------------
 local uiAcc, winAcc, checkAcc = 0, 0, 0
 
@@ -230,17 +268,26 @@ end
 
 function ns.Tick(dt)
   local c = ns.cdb
-  if ns.state.autorun and ns.MovementKeyDown() then ns.state.autorun = false end
   local reason = ns.NotCountingReason()
   local speed = ns.PlayerSpeed()
+  if not reason and speed > 0 and not ns.HoldingMoveInput() then reason = "noinput" end
+
+  local yards = 0
+  if not reason and speed > 0 then
+    local why
+    yards, why = MeasuredYards(speed, dt)
+    if why then ns.state.blockedUntil = GetTime() + 1 end
+    if yards == 0 and (ns.state.blockedUntil or 0) > GetTime() then reason = "blocked" end
+  else
+    ResetAnchor()
+  end
   ns.state.reason, ns.state.speed = reason, speed
 
   local s = c.current
   local active = s and not s.paused
   if active then s.elapsed = s.elapsed + dt end
 
-  if not reason and speed > 0 then
-    local yards = speed * dt
+  if yards > 0 then
     local stride = (speed < ns.WALK_MAX_SPEED) and ns.settings.walkStride or ns.settings.runStride
     local steps = yards / stride
     local t = c.total

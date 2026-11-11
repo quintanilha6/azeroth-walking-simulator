@@ -75,9 +75,18 @@ local function BestDay(c)
   return best
 end
 
+-- Finished activities plus the one you're walking now, so activity
+-- achievements unlock during the walk instead of only after "Finish"
+local function Activities(c)
+  if not c.current then return ipairs(c.history) end
+  local list = { c.current }
+  for _, s in ipairs(c.history) do list[#list + 1] = s end
+  return ipairs(list)
+end
+
 local function BestDistance(c)
   local best = 0
-  for _, s in ipairs(c.history) do if s.distance > best then best = s.distance end end
+  for _, s in Activities(c) do if s.distance > best then best = s.distance end end
   return best
 end
 
@@ -88,7 +97,7 @@ local function ZoneCount(c)
 end
 
 local function StartedBetween(c, from, to)
-  for _, s in ipairs(c.history) do
+  for _, s in Activities(c) do
     local h = tonumber(date("%H", s.start))
     if h >= from and h < to and s.steps >= 1000 then return 1 end
   end
