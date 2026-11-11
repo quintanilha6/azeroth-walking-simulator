@@ -30,6 +30,7 @@ L["%s finished an activity: %s steps, %s in %s. Give kudos in /aws social"] = "%
 L["%s gave you kudos for your %s-step activity!"] = "%s ti ha dato kudos per la tua attività da %s passi!"
 L["%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"] = "%s non ha un percorso per questa attività.\n(Camminata in un dungeon, o prima della versione 2.3.)"
 L["%s isn't online right now, so the route can't be loaded.\nTry again when they are."] = "%s non è online ora, quindi il percorso non può essere caricato.\nRiprova quando lo sarà."
+L["%s didn't answer. They may need to update the addon\nto share routes, or they just went offline."] = "%s non ha risposto. Forse deve aggiornare l'addon\nper condividere i percorsi, oppure si è appena disconnesso."
 L["%s just passed you on this week's leaderboard!"] = "%s ti ha appena superato nella classifica di questa settimana!"
 L["%s more steps to %s"] = "mancano %s passi per %s"
 L["%s steps   |cff888888%s|r"] = "%s passi   |cff888888%s|r"

@@ -2,6 +2,16 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.1] - 2026-11-11
+
+### Fixed
+- **Shared routes:** when a friend doesn't answer, the card now says they may need to update the addon, instead of wrongly saying they're offline. Both players need this version or newer to share routes.
+- Opening the same friend's route twice no longer cancels the second try.
+- Route replies are sent before other addon messages, and the card keeps waiting as long as pieces are still arriving, so long routes no longer give up halfway.
+- Very stop-and-go walks can now be shared too. Before, the friend saw "no route".
+- Asking for the same route over and over no longer floods the owner's messages.
+- Mount rides are drawn in mount colors even when the game hides your speed.
+
 ## [2.4.0] - 2026-11-11
 
 ### Added

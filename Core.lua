@@ -404,7 +404,8 @@ function ns.Tick(dt)
     if reason == "mounted" and speed > 0 and cur and not cur.paused then
       ReadPosition()
       local st = ns.state
-      if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, speed) end
+      -- hidden speed reads as running; a mount is at least the 60% band
+      if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, math.max(speed, 11)) end
     end
   end
   ns.state.reason, ns.state.speed = reason, speed

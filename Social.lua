@@ -89,9 +89,16 @@ local function RawSend(msg, dest)
   end
 end
 
--- replaceKey: a newer message with the same key replaces a queued older one
+-- replaceKey: a newer message with the same key replaces a queued older one.
+-- replaceKey = true: urgent (route replies), sent before normal messages and never dropped.
 local function Queue(msg, dest, replaceKey)
-  if replaceKey then
+  if replaceKey == true then
+    local at = #queue + 1
+    for i, q in ipairs(queue) do
+      if not q.urgent then at = i; break end
+    end
+    table.insert(queue, at, { msg = msg, dest = dest, urgent = true })
+  elseif replaceKey then
     local key = replaceKey .. ":" .. (dest.key or dest.target or tostring(dest.id))
     for _, q in ipairs(queue) do
       if q.key == key then q.msg = msg; return end
@@ -100,7 +107,14 @@ local function Queue(msg, dest, replaceKey)
   else
     table.insert(queue, { msg = msg, dest = dest })
   end
-  while #queue > 80 do table.remove(queue, 1) end
+  -- too many waiting: drop the oldest normal message
+  while #queue > 80 do
+    local dropped
+    for i, q in ipairs(queue) do
+      if not q.urgent then table.remove(queue, i); dropped = true; break end
+    end
+    if not dropped then break end
+  end
 end
 
 local sender = CreateFrame("Frame")
@@ -266,7 +280,8 @@ local function StatsMsg()
     Int(m.steps), Int(m.dist), Int(c.total.steps), Int(c.total.distance), c.total.sessions, streak,
     (s and not s.paused) and 1 or 0, s and Int(s.steps) or 0, c.since, ns.Achievements.MyRank(),
     ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
-    (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0) -- steps/s x10
+    (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0, -- steps/s x10
+    S.FEATURES)
 end
 
 local function ActivityMsg(a)
@@ -334,14 +349,22 @@ end
 -- (RP;2;guid;activityId;index;total;text). total 0 = no route.
 ---------------------------------------------------------------------------
 local ROUTE_CHUNK = 190
-local ROUTE_TIMEOUT = 30
-local pendingRoutes = {} -- ["guid:id"] = { item, chunks, got, onProgress, onDone }
+local ROUTE_WAIT = 30      -- seconds without any answer before giving up
+local REQUEST_COOLDOWN = 20 -- ignore the same request again this soon
+local pendingRoutes = {} -- ["guid:id"] = { item, chunks, got, onProgress, onDone, deadline }
+local answered = {}      -- ["requester:id"] = time we last sent that route
+
+-- Features this version supports, sent with your stats. 1 = route sharing.
+S.FEATURES = 1
 
 -- Someone asked for one of your routes
 function S.HandleRouteRequest(guid, p, dest)
   if not Sharing() then return end
   local id = tonumber(p[4])
   if not id then return end
+  local seen = guid .. ":" .. id
+  if answered[seen] and GetTime() - answered[seen] < REQUEST_COOLDOWN then return end
+  answered[seen] = GetTime()
   local activity
   local cur = ns.cdb.current
   if cur and cur.start == id then activity = cur end
@@ -351,12 +374,12 @@ function S.HandleRouteRequest(guid, p, dest)
   end
   local text = activity and ns.Routes.Encode(activity.route)
   if not text then
-    Queue(Msg("RP", id, 0, 0, ""), dest)
+    Queue(Msg("RP", id, 0, 0, ""), dest, true)
     return
   end
   local total = math.ceil(#text / ROUTE_CHUNK)
   for i = 1, total do
-    Queue(Msg("RP", id, i, total, text:sub((i - 1) * ROUTE_CHUNK + 1, i * ROUTE_CHUNK)), dest)
+    Queue(Msg("RP", id, i, total, text:sub((i - 1) * ROUTE_CHUNK + 1, i * ROUTE_CHUNK)), dest, true)
   end
 end
 
@@ -372,6 +395,7 @@ function S.HandleRouteReply(guid, p)
     req.onDone(nil, "none")
     return
   end
+  req.deadline, req.total = GetTime() + ROUTE_WAIT, total -- still arriving: keep waiting
   if index >= 1 and index <= total and not req.chunks[index] then
     req.chunks[index] = p[7] or ""
     req.got = req.got + 1
@@ -386,22 +410,37 @@ function S.HandleRouteReply(guid, p)
   req.onDone(route, route and nil or "none")
 end
 
+-- Gives up on a request once nothing has arrived for ROUTE_WAIT seconds
+local function WatchRequest(key, req)
+  C_Timer.After(math.max(1, req.deadline - GetTime()), function()
+    if pendingRoutes[key] ~= req then return end -- finished, or replaced
+    if GetTime() < req.deadline then return WatchRequest(key, req) end
+    pendingRoutes[key] = nil
+    local e = ns.db.social.people[req.item.from]
+    -- an answer would have come from a version that can share routes
+    req.onDone(nil, (e and (e.features or 0) >= 1) and "offline" or "noanswer")
+  end)
+end
+
 -- Ask a friend for the route of one of their activities.
--- onProgress(got, total); onDone(route or nil, reason) with reason "none" or "offline"
+-- onProgress(got, total); onDone(route or nil, reason):
+-- "none" (no route), "offline", or "noanswer" (maybe an older version)
 function S.RequestRoute(item, onProgress, onDone)
   local e = ns.db.social.people[item.from]
   local dest = e and e.dest
   if not dest or not S.IsOnline(e) then return onDone(nil, "offline") end
   local key = item.from .. ":" .. item.id
-  pendingRoutes[key] = { item = item, chunks = {}, got = 0, onProgress = onProgress, onDone = onDone }
-  Queue(Msg("RQ", item.id), dest)
-  C_Timer.After(ROUTE_TIMEOUT, function()
-    local req = pendingRoutes[key]
-    if req then
-      pendingRoutes[key] = nil
-      req.onDone(nil, "offline")
-    end
-  end)
+  local req = pendingRoutes[key]
+  if req then -- already asked: just show this one's progress
+    req.onProgress, req.onDone = onProgress, onDone
+    if req.got > 0 and req.total then onProgress(req.got, req.total) end
+    return
+  end
+  req = { item = item, chunks = {}, got = 0, onProgress = onProgress, onDone = onDone,
+          deadline = GetTime() + ROUTE_WAIT }
+  pendingRoutes[key] = req
+  Queue(Msg("RQ", item.id), dest, true)
+  WatchRequest(key, req)
 end
 
 function S.GiveKudos(item)
@@ -501,6 +540,7 @@ local function HandleStats(guid, p)
   e.since, e.rank, e.ach, e.weekDone = N(p[18]), N(p[19]), N(p[20]), N(p[21])
   e.weekKey, e.badges = weekKey, N(p[23])
   e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
+  e.features = N(p[25]) -- 0 = a version before 2.4.1
   e.todayKey, e.monthKey = date("%Y-%m-%d"), "M" .. date("%Y-%m")
   CheckOvertakes(guid)
 end

@@ -872,6 +872,8 @@ function V.OpenFriend(item, owner)
       if route then return V.Open(item, owner) end
       if reason == "offline" then
         V.Open(item, owner, (L["%s isn't online right now, so the route can't be loaded.\nTry again when they are."]):format(owner))
+      elseif reason == "noanswer" then
+        V.Open(item, owner, (L["%s didn't answer. They may need to update the addon\nto share routes, or they just went offline."]):format(owner))
       else
         V.Open(item, owner, (L["%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"]):format(owner))
       end

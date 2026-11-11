@@ -115,13 +115,14 @@ local function PerpDistSq(pa, pb, aa, ab, ba, bb)
   return (pa - qa) ^ 2 + (pb - qb) ^ 2
 end
 
-local function Simplify(pts, tol, stride)
+-- looseBands: allow dropping points where the speed band changes (for sharing)
+local function Simplify(pts, tol, stride, looseBands)
   local n = #pts / stride
   if n <= 2 then return pts end
   local function A(i) return pts[(i - 1) * stride + 1] end
   local function B(i) return pts[(i - 1) * stride + 2] end
   local keep = { [1] = true, [n] = true }
-  if stride == 3 then
+  if stride == 3 and not looseBands then
     for i = 2, n - 1 do
       local band = pts[(i - 1) * 3 + 3]
       if band ~= pts[(i - 2) * 3 + 3] or band ~= pts[i * 3 + 3] then keep[i] = true end
@@ -240,23 +241,24 @@ local function From36(s)
   return neg and -v or v
 end
 
--- Copy of the route simplified until it has at most SHARE_POINTS points
+-- Copy of the route simplified until it has at most SHARE_POINTS points.
+-- A very stop-and-go walk has many speed changes; after a few tries those
+-- points may be dropped too, so the route can always be shared.
 local function ShareCopy(route)
   local tol = 10
-  for _ = 1, 8 do
+  for try = 1, 10 do
     local segs, n = {}, 0
     for _, seg in ipairs(route.segs) do
       local stride = R.Stride(seg)
       if #seg.pts >= stride * 2 then
-        local pts = Simplify(seg.pts, tol, stride)
+        local pts = Simplify(seg.pts, tol, stride, try > 4)
         segs[#segs + 1] = { inst = seg.inst, map = seg.map, stride = stride, pts = pts }
         n = n + #pts / stride
       end
     end
-    if n <= SHARE_POINTS then return segs end
+    if n <= SHARE_POINTS or try == 10 then return segs end
     tol = tol * 1.8
   end
-  return nil
 end
 
 function R.Encode(route)
