@@ -26,7 +26,7 @@ ns.state = { reason = nil, speed = 0, moving = false, zone = "", follow = false 
 ns.REASON_TEXT = {
   dead = "Dead", taxi = "Flight path", vehicle = "Vehicle",
   mounted = "Mounted", flying = "Flying", swimming = "Swimming",
-  follow = "Following", noinput = "Auto-run", blocked = "Blocked",
+  follow = "Following", noinput = "Auto-run", blocked = "Blocked", afk = "AFK", idle = "Idle (steer)",
 }
 
 function ns.Print(msg)
@@ -281,6 +281,59 @@ end
 local function ResetAnchor() SetAnchor(ReadPosition()) end
 
 ---------------------------------------------------------------------------
+-- Rule 3 (only where the game hides your position, e.g. dungeons):
+-- you must be actively playing. Holding W into a wall looks exactly like
+-- walking there, so if you haven't steered, turned, jumped, cast, fought or
+-- entered a new area for IDLE_LIMIT seconds, counting pauses.
+---------------------------------------------------------------------------
+local IDLE_LIMIT = 60
+local lastActive = GetTime()
+local lastCursorX, lastCursorY, lastFacing
+local ACTIVE_BINDINGS = { "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT", "JUMP", "MOVEBACKWARD" }
+
+local function MarkActive() lastActive = GetTime() end
+
+local function SampleActivity()
+  -- mouse moved (not while steering: the cursor is frozen then)
+  if GetCursorPosition then
+    local ok, cx, cy = pcall(GetCursorPosition)
+    if ok and Plain(cx) and Plain(cy) then
+      if lastCursorX and (math.abs(cx - lastCursorX) > 2 or math.abs(cy - lastCursorY) > 2) then MarkActive() end
+      lastCursorX, lastCursorY = cx, cy
+    end
+  end
+  -- turned around (covers steering with the right mouse button, where readable)
+  if GetPlayerFacing then
+    local ok, f = pcall(GetPlayerFacing)
+    if ok and Plain(f) then
+      if lastFacing and math.abs(f - lastFacing) > 0.02 then MarkActive() end
+      lastFacing = f
+      ns.state.facingReadable = true
+    else
+      ns.state.facingReadable = false
+    end
+  end
+  -- turn / strafe / jump / back keys
+  if GetBindingKey then
+    for _, name in ipairs(ACTIVE_BINDINGS) do
+      local k1, k2 = GetBindingKey(name)
+      if (k1 and BindingHeld(k1)) or (k2 and BindingHeld(k2)) then MarkActive() break end
+    end
+  end
+  if Flag(UnitAffectingCombat, "player") then MarkActive() end
+end
+
+function ns.IdleSeconds() return GetTime() - lastActive end
+
+local activityWatch = CreateFrame("Frame")
+for _, ev in ipairs({ "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_DISABLED", "ZONE_CHANGED", "ZONE_CHANGED_INDOORS",
+                      "ZONE_CHANGED_NEW_AREA", "LOOT_OPENED", "PLAYER_ENTERING_WORLD" }) do
+  activityWatch:RegisterEvent(ev)
+end
+activityWatch:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+activityWatch:SetScript("OnEvent", MarkActive)
+
+---------------------------------------------------------------------------
 -- Tracking: distance actually moved on foot (or speed x time where the game
 -- hides your position), only while you hold movement keys yourself
 ---------------------------------------------------------------------------
@@ -295,7 +348,9 @@ end
 
 function ns.Tick(dt)
   local c = ns.cdb
+  SampleActivity()
   local reason = ns.NotCountingReason()
+  if not reason and Flag(UnitIsAFK, "player") then reason = "afk" end
   local speed = ns.PlayerSpeed()
   if not reason and speed > 0 and not ns.HoldingMoveInput() then reason = "noinput" end
 
@@ -305,6 +360,10 @@ function ns.Tick(dt)
     yards, why = MeasuredYards(speed, dt)
     if why then ns.state.blockedUntil = GetTime() + 1 end
     if yards == 0 and (ns.state.blockedUntil or 0) > GetTime() then reason = "blocked" end
+    -- Position hidden (dungeons): only count while you're actively playing
+    if yards > 0 and ns.state.posSource == "none" and ns.IdleSeconds() > IDLE_LIMIT then
+      yards, reason = 0, "idle"
+    end
   else
     ResetAnchor()
   end
@@ -315,9 +374,11 @@ function ns.Tick(dt)
     local d = ns.debugInfo
     d.t, d.yards, d.speed = d.t + dt, d.yards + yards, d.speed + speed * dt
     if d.t >= 1 then
-      ns.Print(("debug: keys=%s  pos=%s  speed-says=%.2f yd  counted=%.2f yd  last moved=%.2f / expected %.2f  status=%s")
+      ns.Print(("debug: keys=%s  pos=%s  speed-says=%.2f yd  counted=%.2f yd  last moved=%.2f / expected %.2f  " ..
+        "idle=%ds  facing=%s  status=%s")
         :format(ns.HoldingMoveInput() and "held" or "no", ns.state.posSource or "?", d.speed, d.yards,
-          ns.state.dbgMoved or 0, ns.state.dbgPending or 0, tostring(reason or "counting")))
+          ns.state.dbgMoved or 0, ns.state.dbgPending or 0, ns.IdleSeconds(),
+          ns.state.facingReadable and "readable" or "hidden", tostring(reason or "counting")))
       d.t, d.yards, d.speed = 0, 0, 0
     end
   end
