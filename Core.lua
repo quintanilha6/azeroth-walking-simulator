@@ -286,7 +286,7 @@ local function ResetAnchor() SetAnchor(ReadPosition()) end
 -- walking there, so if you haven't steered, turned, jumped, cast, fought or
 -- entered a new area for IDLE_LIMIT seconds, counting pauses.
 ---------------------------------------------------------------------------
-local IDLE_LIMIT = 60
+local IDLE_LIMIT = 5
 local lastActive = GetTime()
 local lastCursorX, lastCursorY, lastFacing
 local ACTIVE_BINDINGS = { "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT", "JUMP", "MOVEBACKWARD" }
@@ -300,6 +300,14 @@ local function SampleActivity()
     if ok and Plain(cx) and Plain(cy) then
       if lastCursorX and (math.abs(cx - lastCursorX) > 2 or math.abs(cy - lastCursorY) > 2) then MarkActive() end
       lastCursorX, lastCursorY = cx, cy
+    end
+  end
+  -- raw mouse movement: still works while the cursor is hidden for steering
+  if GetCursorDelta then
+    local ok, dx, dy = pcall(GetCursorDelta)
+    if ok and Plain(dx) and Plain(dy) and (math.abs(dx) + math.abs(dy)) > 0 then
+      MarkActive()
+      ns.state.mouseDelta = true
     end
   end
   -- turned around (covers steering with the right mouse button, where readable)
@@ -375,10 +383,12 @@ function ns.Tick(dt)
     d.t, d.yards, d.speed = d.t + dt, d.yards + yards, d.speed + speed * dt
     if d.t >= 1 then
       ns.Print(("debug: keys=%s  pos=%s  speed-says=%.2f yd  counted=%.2f yd  last moved=%.2f / expected %.2f  " ..
-        "idle=%ds  facing=%s  status=%s")
+        "idle=%ds  facing=%s  mousedelta=%s  status=%s")
         :format(ns.HoldingMoveInput() and "held" or "no", ns.state.posSource or "?", d.speed, d.yards,
           ns.state.dbgMoved or 0, ns.state.dbgPending or 0, ns.IdleSeconds(),
-          ns.state.facingReadable and "readable" or "hidden", tostring(reason or "counting")))
+          ns.state.facingReadable and "readable" or "hidden",
+          GetCursorDelta and (ns.state.mouseDelta and "seen" or "none yet") or "unsupported",
+          tostring(reason or "counting")))
       d.t, d.yards, d.speed = 0, 0, 0
     end
   end

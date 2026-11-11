@@ -38,7 +38,7 @@ WoW has no step counter, so the addon measures how far you really move on foot a
 - You're holding a movement key yourself (forward, back, strafe or move-and-steer) or both mouse buttons. Auto-run, click-to-move and controllers don't count.
 - Your position is actually changing. Running into a wall or in place doesn't count.
 
-In dungeons the game hides your position, so there the addon uses your movement speed instead. You still need to hold the keys, and counting pauses if you haven't steered, turned, jumped, cast or fought for 60 seconds. Nothing counts while you're AFK.
+In dungeons the game hides your position, so there the addon uses your movement speed instead. You still need to hold the keys, and counting pauses if you haven't moved the mouse, turned, strafed, jumped, cast or fought for 5 seconds. Nothing counts while you're AFK.
 
 `/aws debug` prints what the counter sees once a second.
 
