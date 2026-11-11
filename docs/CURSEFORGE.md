@@ -87,7 +87,7 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 - Open your **friends' routes** straight from the Feed, and save any route card as a **screenshot**.
 
 ### Languages
-English, Português (Portugal), Español, Français, Deutsch, Italiano, Suomi and Svenska. The addon follows your game language automatically, and you can change it in Settings.
+English, Português (Portugal), Español, Français, Deutsch and Italiano. The addon always uses the same language as your game.
 
 Only players who also use the addon can see your stats. You can turn sharing off at any time in Settings.
 

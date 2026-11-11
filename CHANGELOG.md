@@ -9,9 +9,9 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 - **Speed colors on routes:** yellow walking, orange running, red fast on foot (travel form, ghost wolf, Sprint), blue mount 60%, purple mount 100%, with a legend on the card. Mount rides are now drawn on the route too. They still never count as steps.
 - **Minimap button:** click to open, right-click for the route card, Shift-click for options, drag to move. It can be hidden in Settings.
 - **Settings in the game's Options → AddOns panel**, and `/aws options` to open them.
-- **Translations:** Português (Portugal), Español, Français, Deutsch, Italiano, Suomi and Svenska.
-  - The addon follows your game language automatically. Portuguese game clients get European Portuguese.
-  - You can pick any language in Settings → Language. Finnish and Swedish are chosen there, because WoW has no client in those languages.
+- **Translations:** Português (Portugal), Español, Français, Deutsch and Italiano.
+  - The addon always uses the same language as your game. Portuguese game clients get European Portuguese.
+  - Other game languages show English.
 
 ### Changed
 - Routes recorded before this version show in plain orange, without speed colors.

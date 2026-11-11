@@ -15,7 +15,6 @@ ns.DEFAULTS = {
   sounds = true,
   minimapShown = true,  -- minimap button
   minimapAngle = 200,   -- its position around the minimap, in degrees
-  language = "auto",    -- "auto" (from the game) or a language code
 }
 ns.RESUME_WINDOW = 180  -- seconds: an auto session survives a /reload or quick relog
 ns.HISTORY_CAP = 500
@@ -91,6 +90,7 @@ local function InitDB()
   db.settings = db.settings or {}
   -- Step length used to be a setting; it's fixed now so steps are fair
   db.settings.stride, db.settings.walkStride, db.settings.runStride = nil, nil, nil
+  db.settings.language = nil -- language now always follows the game
   CopyDefaults(db.settings, ns.DEFAULTS)
   db.chars = db.chars or {}
   db.since = db.since or time()
@@ -100,7 +100,7 @@ local function InitDB()
   db.social.feed = db.social.feed or {}           -- activities and events
   db.social.completions = db.social.completions or {} -- [periodKey][id][guid] = true
   ns.db, ns.settings = db, db.settings
-  ns.ApplyLanguage(db.settings.language)
+  ns.ApplyLanguage()
   ns.InitCharDB()
 end
 

@@ -159,18 +159,6 @@ local COLS = { { "Date", 0 }, { "Steps", 120 }, { "Distance", 195 }, { "Moving",
                { "Zones", 435 } }
 local ROW_W, ROW_H = 570, 20
 
-StaticPopupDialogs["AWS_RELOAD"] = {
-  text = "Reload the interface now to change the language?",
-  button1 = YES, button2 = NO,
-  OnShow = function(self)
-    if self.text and self.text.SetText then
-      self.text:SetText(L["Reload the interface now to change the language?"])
-    end
-  end,
-  OnAccept = function() ReloadUI() end,
-  timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-}
-
 StaticPopupDialogs["AWS_DELETE_SESSION"] = {
   text = "Delete this activity from your history?\n(All-time totals are not changed.)",
   button1 = YES, button2 = NO,
@@ -360,24 +348,6 @@ local function BuildSettings(page)
     function() return s.units == "mi" and L["Miles"] or L["Kilometers"] end,
     function() s.units = (s.units == "mi") and "km" or "mi"; page:Refresh(); ns.RefreshUI() end,
     function() s.units = (s.units == "mi") and "km" or "mi"; page:Refresh(); ns.RefreshUI() end))
-  -- Language: cycle through the list; a /reload applies it everywhere
-  local function LanguageIndex()
-    for i, lang in ipairs(ns.LANGUAGES) do if lang.code == s.language then return i end end
-    return 1
-  end
-  local function SetLanguage(step)
-    local n = #ns.LANGUAGES
-    s.language = ns.LANGUAGES[(LanguageIndex() - 1 + step) % n + 1].code
-    page:Refresh()
-    StaticPopup_Show("AWS_RELOAD")
-  end
-  table.insert(updaters, Stepper(L["Language"],
-    function()
-      local lang = ns.LANGUAGES[LanguageIndex()]
-      return lang.code == "auto" and L[lang.name] or lang.name
-    end,
-    function() SetLanguage(-1) end,
-    function() SetLanguage(1) end))
   table.insert(updaters, Stepper(L["Tracker size"],
     function() return ("%d%%"):format(s.trackerScale * 100 + 0.5) end,
     function() s.trackerScale = math.max(0.6, Round(s.trackerScale - 0.1)); ns.ApplyTrackerSettings(); page:Refresh() end,

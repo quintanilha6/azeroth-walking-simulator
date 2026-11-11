@@ -19,7 +19,7 @@
 - **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, colored by speed (walking, running, fast, mounted), and save it as a screenshot. Open your friends' routes from the Feed. Recorded outdoors.
 - **All-time totals** per character and per account, a 7-day chart, streaks and personal records.
 - **Minimap button** and settings in the game's **Options → AddOns** panel.
-- **8 languages:** English, Português (Portugal), Español, Français, Deutsch, Italiano, Suomi, Svenska. Follows your game language automatically, or pick one in Settings.
+- **6 languages:** English, Português (Portugal), Español, Français, Deutsch and Italiano. The addon always uses your game's language.
 
 ## Commands
 
