@@ -216,8 +216,31 @@ local function BuildFeed(box)
       else ns.Social.GiveKudos(it) end
     end)
     r.btn:SetPoint("RIGHT", -4, 0)
+
+    -- Map icon: your route, or ask the friend for theirs
+    r.map = CreateFrame("Button", nil, r)
+    r.map:SetSize(18, 18)
+    r.map:SetPoint("RIGHT", r.btn, "LEFT", -6, 0)
+    r.map:SetNormalTexture("Interface\\Icons\\INV_Misc_Map_01")
+    r.map:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    r.map:SetScript("OnClick", function()
+      local it = r.item
+      if it.mine then
+        ns.RouteViewer.Open(it.src)
+      else
+        local e = ns.db.social.people[it.from]
+        ns.RouteViewer.OpenFriend(it, ns.Social.Short(e and e.name or "?"))
+      end
+    end)
+    r.map:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:AddLine("View route")
+      GameTooltip:Show()
+    end)
+    r.map:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     r.kudos = r:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    r.kudos:SetPoint("RIGHT", r.btn, "LEFT", -6, 0)
+    r.kudos:SetPoint("RIGHT", r.map, "LEFT", -6, 0)
     r.kudos:SetTextColor(unpack(ns.ORANGE))
 
     r:SetScript("OnEnter", function(self) FeedTooltip(self, self.item) end)
@@ -237,8 +260,10 @@ local function BuildFeed(box)
         r.bottom:SetText(it.text)
         r.bg:SetVertexColor(1, 0.82, 0, 0.08)
         r.btn:Hide()
+        r.map:Hide()
         r.kudos:SetText("")
       else
+        r.map:SetShown(not it.mine or ns.Routes.Has(it.src))
         r.icon:SetTexture("Interface\\Icons\\Ability_Rogue_Sprint")
         local zone = it.zones and it.zones[1]
         r.top:SetText(("%s  |cff888888%s%s|r"):format(ns.Social.ColoredName(it.from), when,

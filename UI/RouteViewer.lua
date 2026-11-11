@@ -769,9 +769,9 @@ end
 
 local function FillStats(s)
   local live = s == ns.cdb.current
-  card.title:SetText(UnitName("player") .. (live and "  -  walking now" or ""))
+  card.title:SetText((card.owner or UnitName("player")) .. (live and "  -  walking now" or ""))
   local zones = s.zones and #s.zones > 0 and table.concat(s.zones, ", ") or "Azeroth"
-  card.sub:SetText(F.Date(s.start) .. "   " .. zones)
+  card.sub:SetText(F.Date(s.start or s.id) .. "   " .. zones)
   card.dist:SetText(F.Distance(s.distance))
   card.steps:SetText(F.Number(s.steps))
   card.time:SetText(F.Time(s.moving))
@@ -806,7 +806,9 @@ local function OnCardHide()
   card.canvas:SetScript("OnUpdate", nil)
 end
 
-function V.Open(s)
+-- owner: a friend's display name (nil = your own activity).
+-- emptyText: message shown on the map when there's no route (yet).
+function V.Open(s, owner, emptyText)
   if not s then return ns.Print("No activity to show yet.") end
   if not card then
     BuildCard()
@@ -814,7 +816,7 @@ function V.Open(s)
     card:SetScript("OnHide", OnCardHide)
   end
   wipe(cache)
-  card.activity = s
+  card.activity, card.owner = s, owner
   card.drawnPoints = s.route and s.route.n
   FillStats(s)
 
@@ -824,8 +826,9 @@ function V.Open(s)
   card.interactive = false
 
   local hasRoute = ns.Routes.Has(s)
-  local zone = PlayerZone()
-  -- Open on the zone you're in; without one (e.g. in a dungeon) fit the route
+  -- Your own walks open on the zone you're in; a friend's route opens fitted
+  -- to their walk. Without a zone (e.g. in a dungeon) fit the route.
+  local zone = not (owner and hasRoute) and PlayerZone() or nil
   local M = zone or (hasRoute and DefaultMap(s.route))
   local function Controls(show)
     for _, b in ipairs(card.controls) do b:SetShown(show) end
@@ -835,7 +838,7 @@ function V.Open(s)
   if M then
     card.interactive = true
     Controls(true)
-    card.empty:SetText("No route recorded for this activity.\nRoutes are recorded outdoors only.")
+    card.empty:SetText(emptyText or "No route recorded for this activity.\nRoutes are recorded outdoors only.")
     card.empty:SetShown(not hasRoute)
     if zone then GoToMap(zone, PlayerOnMap(zone)) else GoToMap(M, nil, nil, true) end
   elseif hasRoute then
@@ -846,12 +849,33 @@ function V.Open(s)
     for _, t in ipairs(card.tiles) do t:Hide() end
     for _, t in ipairs(card.explored) do t:Hide() end
     card.mapName:SetText("")
-    card.empty:SetText("No route for this activity.\nRoutes are recorded outdoors only: the game hides your " ..
-      "position in dungeons. Older activities keep only their numbers.")
+    card.empty:SetText(emptyText or ("No route for this activity.\nRoutes are recorded outdoors only: the game " ..
+      "hides your position in dungeons. Older activities keep only their numbers."))
     card.empty:Show()
     Controls(false)
   end
   card:Show()
+end
+
+-- A friend's activity from the Feed: ask them for the route if we don't have it
+function V.OpenFriend(item, owner)
+  if ns.Routes.Has(item) then return V.Open(item, owner) end
+  V.Open(item, owner, ("Loading route from %s..."):format(owner))
+  ns.Social.RequestRoute(item,
+    function(got, total)
+      if card.activity == item and card:IsShown() then
+        card.empty:SetText(("Loading route from %s...  %d / %d"):format(owner, got, total))
+      end
+    end,
+    function(route, reason)
+      if card.activity ~= item or not card:IsShown() then return end
+      if route then return V.Open(item, owner) end
+      if reason == "offline" then
+        V.Open(item, owner, ("%s isn't online right now, so the route can't be loaded.\nTry again when they are."):format(owner))
+      else
+        V.Open(item, owner, ("%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"):format(owner))
+      end
+    end)
 end
 
 -- "My zone" button: back to the zone you're in, centered on you

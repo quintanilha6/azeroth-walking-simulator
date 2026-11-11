@@ -327,6 +327,82 @@ local function ReplyToHello(dest, statsOnly)
   end
 end
 
+---------------------------------------------------------------------------
+-- Route sharing, on demand: you ask a friend for one activity's route
+-- (RQ;2;guid;activityId) and they answer only you, in chunks
+-- (RP;2;guid;activityId;index;total;text). total 0 = no route.
+---------------------------------------------------------------------------
+local ROUTE_CHUNK = 190
+local ROUTE_TIMEOUT = 30
+local pendingRoutes = {} -- ["guid:id"] = { item, chunks, got, onProgress, onDone }
+
+-- Someone asked for one of your routes
+function S.HandleRouteRequest(guid, p, dest)
+  if not Sharing() then return end
+  local id = tonumber(p[4])
+  if not id then return end
+  local activity
+  local cur = ns.cdb.current
+  if cur and cur.start == id then activity = cur end
+  for _, a in ipairs(ns.cdb.history) do
+    if activity then break end
+    if a.start == id then activity = a end
+  end
+  local text = activity and ns.Routes.Encode(activity.route)
+  if not text then
+    Queue(Msg("RP", id, 0, 0, ""), dest)
+    return
+  end
+  local total = math.ceil(#text / ROUTE_CHUNK)
+  for i = 1, total do
+    Queue(Msg("RP", id, i, total, text:sub((i - 1) * ROUTE_CHUNK + 1, i * ROUTE_CHUNK)), dest)
+  end
+end
+
+-- A chunk of a route you asked for
+function S.HandleRouteReply(guid, p)
+  local id = tonumber(p[4])
+  local key = id and (guid .. ":" .. id)
+  local req = key and pendingRoutes[key]
+  if not req then return end
+  local index, total = tonumber(p[5]) or 0, tonumber(p[6]) or 0
+  if total == 0 then
+    pendingRoutes[key] = nil
+    req.onDone(nil, "none")
+    return
+  end
+  if index >= 1 and index <= total and not req.chunks[index] then
+    req.chunks[index] = p[7] or ""
+    req.got = req.got + 1
+  end
+  if req.got < total then
+    req.onProgress(req.got, total)
+    return
+  end
+  pendingRoutes[key] = nil
+  local route = ns.Routes.Decode(table.concat(req.chunks))
+  if route then req.item.route = route end -- kept with the feed item
+  req.onDone(route, route and nil or "none")
+end
+
+-- Ask a friend for the route of one of their activities.
+-- onProgress(got, total); onDone(route or nil, reason) with reason "none" or "offline"
+function S.RequestRoute(item, onProgress, onDone)
+  local e = ns.db.social.people[item.from]
+  local dest = e and e.dest
+  if not dest or not S.IsOnline(e) then return onDone(nil, "offline") end
+  local key = item.from .. ":" .. item.id
+  pendingRoutes[key] = { item = item, chunks = {}, got = 0, onProgress = onProgress, onDone = onDone }
+  Queue(Msg("RQ", item.id), dest)
+  C_Timer.After(ROUTE_TIMEOUT, function()
+    local req = pendingRoutes[key]
+    if req then
+      pendingRoutes[key] = nil
+      req.onDone(nil, "offline")
+    end
+  end)
+end
+
 function S.GiveKudos(item)
   if item.kudos or item.mine or item.event then return end
   item.kudos = true
@@ -542,6 +618,12 @@ local function OnMessage(msg, name, dest, via)
     HandleKudos(guid, p)
   elseif kind == "C" then
     HandleEvent(guid, p)
+  elseif kind == "RQ" then
+    S.HandleRouteRequest(guid, p, dest)
+    return
+  elseif kind == "RP" then
+    S.HandleRouteReply(guid, p)
+    return
   end
   ns.OnSocialChanged()
 end
