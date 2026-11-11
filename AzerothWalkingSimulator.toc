@@ -28,3 +28,5 @@ UI\SocialPage.lua
 UI\ChallengesPage.lua
 UI\TrophiesPage.lua
 UI\Window.lua
+UI\Options.lua
+UI\Minimap.lua

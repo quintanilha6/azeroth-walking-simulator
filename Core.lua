@@ -12,6 +12,9 @@ ns.DEFAULTS = {
   socialChat = true,    -- chat line when a friend finishes something
   banners = true,       -- big banners and toasts
   sounds = true,
+  minimapShown = true,  -- minimap button
+  minimapAngle = 200,   -- its position around the minimap, in degrees
+  language = "auto",    -- "auto" (from the game) or a language code
 }
 ns.RESUME_WINDOW = 180  -- seconds: an auto session survives a /reload or quick relog
 ns.HISTORY_CAP = 500
@@ -529,6 +532,8 @@ driver:SetScript("OnEvent", function(self, event, arg1)
     ns.SyncAccount()
     ns.OnLogin()
     ns.CreateTracker()
+    ns.MinimapButton.Create()
+    ns.Options.Create()
     self:SetScript("OnUpdate", OnUpdate)
     if migrated then
       ns.Print("Imported your Stride data. Welcome to Azeroth Walking Simulator!")
@@ -608,6 +613,11 @@ local function Slash(msg)
     ns.Social.ShareToChat(ns.cdb.history[1])
   elseif cmd == "testbanner" then
     ns.Banner.Test()
+  elseif cmd == "options" or cmd == "settings" or cmd == "config" then
+    ns.Options.Open()
+  elseif cmd == "minimap" then
+    ns.settings.minimapShown = not ns.settings.minimapShown
+    ns.MinimapButton.Apply()
   elseif cmd == "route" then
     -- the walk in progress if it has a route, otherwise the last activity
     local cur = ns.cdb.current

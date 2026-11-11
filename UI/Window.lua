@@ -1,7 +1,7 @@
 local _, ns = ...
 local F = ns.F
 
-local WIDTH, HEIGHT = 640, 560
+local WIDTH, HEIGHT = 640, 610
 local TABS = { "Overview", "Activities", "Challenges", "Trophies", "Social", "Settings" }
 ns.CHALLENGES_TAB, ns.TROPHIES_TAB, ns.SOCIAL_TAB = 3, 4, 5
 
@@ -319,6 +319,8 @@ local function BuildSettings(page)
   y = y - 24
   Check("Banners and toasts", "banners", function(on) s.banners = on end)
   Check("Sounds", "sounds", function(on) s.sounds = on end, 300)
+  y = y - 24
+  Check("Show minimap button", "minimapShown", function(on) s.minimapShown = on; ns.MinimapButton.Apply() end)
   y = y - 30
 
   Header(page, 0, y, "Social")
@@ -382,6 +384,9 @@ end
 ---------------------------------------------------------------------------
 -- Window
 ---------------------------------------------------------------------------
+-- The same settings page is used in the game's Options panel (UI/Options.lua)
+ns.BuildSettingsPage = BuildSettings
+
 local BUILDERS = {
   BuildOverview,
   BuildActivities,
