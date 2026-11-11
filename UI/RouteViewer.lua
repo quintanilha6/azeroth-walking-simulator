@@ -634,8 +634,25 @@ local function BuildCard()
   card.plusBtn:SetPoint("RIGHT", card.fitBtn, "LEFT", -2, 0)
   card.minusBtn = Ctl("-", 24, function() ZoomBy(1 / 1.5) end)
   card.minusBtn:SetPoint("RIGHT", card.plusBtn, "LEFT", -2, 0)
-  card.zoneBtn = Ctl("My zone", 66, function() V.GoToMyZone() end)
-  card.zoneBtn:SetPoint("RIGHT", card.minusBtn, "LEFT", -2, 0)
+  -- Target icon: back to the zone you're in, centered on you
+  local zoneBtn = CreateFrame("Button", nil, over)
+  zoneBtn:SetSize(20, 20)
+  zoneBtn:SetPoint("RIGHT", card.minusBtn, "LEFT", -4, 0)
+  local zbg = zoneBtn:CreateTexture(nil, "BACKGROUND")
+  zbg:SetAllPoints()
+  zbg:SetTexture("Interface\\Buttons\\WHITE8X8")
+  zbg:SetVertexColor(0, 0, 0, 0.6)
+  zoneBtn:SetNormalTexture("Interface\\CURSOR\\Crosshairs")
+  zoneBtn:GetNormalTexture():SetVertexColor(1, 0.82, 0)
+  zoneBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  zoneBtn:SetScript("OnClick", function() V.GoToMyZone() end)
+  zoneBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine("Go to my position")
+    GameTooltip:Show()
+  end)
+  zoneBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  card.zoneBtn = zoneBtn
   card.controls = { card.worldBtn, card.upBtn, card.fitBtn, card.plusBtn, card.minusBtn, card.zoneBtn }
 
   -- Mouse: wheel zoom, drag to move, click to zoom in, right-click to zoom out
