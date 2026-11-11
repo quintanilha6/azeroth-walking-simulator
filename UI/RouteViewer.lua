@@ -184,6 +184,51 @@ local function MapArt(id)
   return cache[key] or nil
 end
 
+-- Explored areas: the detailed map pieces drawn on top of the blank base map
+-- (exactly like the game map; unexplored areas stay blank there too)
+local TILE = 256
+local function TileFileSize(pixels)
+  local size = 16
+  while size < pixels do size = size * 2 end
+  return size
+end
+
+local function Explored(id)
+  local key = "e" .. id
+  if cache[key] == nil then
+    cache[key] = false
+    local E = C_MapExplorationInfo
+    if E and E.GetExploredMapTextures then
+      local ok, list = pcall(E.GetExploredMapTextures, id)
+      if ok and type(list) == "table" then
+        local pieces = {}
+        for _, info in ipairs(list) do
+          local w, h, ox, oy = info.textureWidth, info.textureHeight, info.offsetX, info.offsetY
+          if not info.isShownByMouseOver and Plain(w) and Plain(h) and Plain(ox) and Plain(oy)
+             and type(info.fileDataIDs) == "table" then
+            local cols, rows = math.ceil(w / TILE), math.ceil(h / TILE)
+            for r = 1, rows do
+              for c = 1, cols do
+                local file = info.fileDataIDs[(r - 1) * cols + c]
+                if file then
+                  local pw = (c < cols) and TILE or (w % TILE == 0 and TILE or w % TILE)
+                  local ph = (r < rows) and TILE or (h % TILE == 0 and TILE or h % TILE)
+                  local fw = (c < cols) and TILE or TileFileSize(pw)
+                  local fh = (r < rows) and TILE or TileFileSize(ph)
+                  pieces[#pieces + 1] = { file = file, x = ox + (c - 1) * TILE, y = oy + (r - 1) * TILE,
+                                          w = pw, h = ph, u = pw / fw, v = ph / fh }
+                end
+              end
+            end
+          end
+        end
+        cache[key] = pieces
+      end
+    end
+  end
+  return cache[key] or nil
+end
+
 -- A function that puts this route part's points on map M (0..1), or nil
 local function SegMapper(seg, M)
   if not seg.map then return nil end
@@ -297,6 +342,23 @@ local function Render()
     tex:Show()
   end
   for i = #art.tiles + 1, #card.tiles do card.tiles[i]:Hide() end
+
+  -- explored areas on top of the base map
+  local pieces = Explored(view.mapID) or {}
+  for i, p in ipairs(pieces) do
+    local tex = card.explored[i]
+    if not tex then
+      tex = card.content:CreateTexture(nil, "BORDER")
+      card.explored[i] = tex
+    end
+    tex:SetTexture(p.file)
+    tex:SetTexCoord(0, p.u, 0, p.v)
+    tex:ClearAllPoints()
+    tex:SetPoint("TOPLEFT", card.content, "TOPLEFT", p.x * scale, -p.y * scale)
+    tex:SetSize(p.w * scale, p.h * scale)
+    tex:Show()
+  end
+  for i = #pieces + 1, #card.explored do card.explored[i]:Hide() end
 
   PoolReset(card.outline)
   PoolReset(card.route)
@@ -467,6 +529,7 @@ local function BuildCard()
   content:SetSize(CW, CH)
   card.content = content
   card.tiles = {}
+  card.explored = {}
   local shade = content:CreateTexture(nil, "ARTWORK")
   shade:SetAllPoints()
   shade:SetTexture("Interface\\Buttons\\WHITE8X8")
@@ -576,6 +639,7 @@ local function DrawShapeOnly(route)
   card.content:SetPoint("TOPLEFT")
   card.content:SetSize(CW, CH)
   for _, t in ipairs(card.tiles) do t:Hide() end
+  for _, t in ipairs(card.explored) do t:Hide() end
   local minA, maxA, minB, maxB = ns.Routes.Bounds(route)
   local spanA, spanB = math.max(maxA - minA, 1), math.max(maxB - minB, 1)
   local scale = math.min((CW - PAD * 2) / spanB, (CH - PAD * 2) / spanA)
@@ -619,6 +683,7 @@ function V.Open(s)
 
   if not ns.Routes.Has(s) then
     for _, t in ipairs(card.tiles) do t:Hide() end
+  for _, t in ipairs(card.explored) do t:Hide() end
     card.mapName:SetText("")
     card.empty:SetText("No route for this activity.\nRoutes are recorded outdoors only: the game hides your " ..
       "position in dungeons. Older activities keep only their numbers.")
