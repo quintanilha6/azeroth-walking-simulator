@@ -9,7 +9,7 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
   - you're holding a movement key yourself (forward, back, strafe, move-and-steer) or both mouse buttons
   - your position is really changing
 - Distance now comes from how far you actually move, not just your movement speed. In dungeons, where the game hides your position, speed is still used, but you must hold the keys.
-- In dungeons, steps only count while you're actively playing. If you haven't moved the mouse, turned, strafed, jumped, cast a spell, fought or entered a new area for 5 seconds, counting pauses ("Not counting: Idle") until you do.
+- In dungeons, steps only count while you're actively playing. If you haven't moved the mouse, turned, strafed, jumped, cast a spell, fought or entered a new area for 5 seconds, counting pauses ("Not counting: Idle") until you do. Steering with the right mouse button (or both buttons) counts as activity.
 - Nothing counts while your character is marked AFK.
 - Click-to-move and controller movement no longer count.
 

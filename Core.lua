@@ -302,14 +302,19 @@ local function SampleActivity()
       lastCursorX, lastCursorY = cx, cy
     end
   end
-  -- raw mouse movement: still works while the cursor is hidden for steering
+  -- raw mouse movement: on some clients this still works while steering
+  local steering = Flag(IsMouselooking) and Flag(IsMouseButtonDown, "RightButton")
   if GetCursorDelta then
     local ok, dx, dy = pcall(GetCursorDelta)
     if ok and Plain(dx) and Plain(dy) and (math.abs(dx) + math.abs(dy)) > 0 then
       MarkActive()
       ns.state.mouseDelta = true
+      if steering then ns.state.deltaWhileSteering = true end
     end
   end
+  -- If this client can't show mouse movement while you steer with the right
+  -- mouse button, holding it has to count as actively playing
+  if steering and not ns.state.deltaWhileSteering then MarkActive() end
   -- turned around (covers steering with the right mouse button, where readable)
   if GetPlayerFacing then
     local ok, f = pcall(GetPlayerFacing)
