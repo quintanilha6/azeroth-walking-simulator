@@ -16,8 +16,10 @@
 - **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time.
 - **Social feed** with Kudos, overtake alerts and a weekly recap.
 - **Quick Share** your walk to Say, Party, Raid or Guild chat in two clicks.
-- **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, and save it as a screenshot. Recorded outdoors.
+- **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, colored by speed (walking, running, fast, mounted), and save it as a screenshot. Open your friends' routes from the Feed. Recorded outdoors.
 - **All-time totals** per character and per account, a 7-day chart, streaks and personal records.
+- **Minimap button** and settings in the game's **Options → AddOns** panel.
+- **8 languages:** English, Português (Portugal), Español, Français, Deutsch, Italiano, Suomi, Svenska. Follows your game language automatically, or pick one in Settings.
 
 ## Commands
 
@@ -31,6 +33,8 @@
 | `/aws share` | Put your last activity in the chat box |
 | `/aws route` | Show the route of your current or last walk |
 | `/aws tracker` | Show or hide the mini tracker |
+| `/aws minimap` | Show or hide the minimap button |
+| `/aws options` | Open the settings in the game's Options panel |
 | `/aws testbanner` | Preview the banners |
 
 ## How steps are counted

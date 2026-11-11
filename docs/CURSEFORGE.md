@@ -80,6 +80,15 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 - A **weekly recap** of your steps, challenges and place among friends.
 - **Quick Share** posts your walk to Say, Party, Raid or Guild chat in two clicks.
 
+### Routes
+- See the path you walked on a **route card with its own map**: zoom, drag, click into zones, or view the whole world.
+- Routes are **colored by speed**: walking, running, fast on foot, and mounted travel.
+- Hearthstones, portals and flight paths show as dashed lines.
+- Open your **friends' routes** straight from the Feed, and save any route card as a **screenshot**.
+
+### Languages
+English, Português (Portugal), Español, Français, Deutsch, Italiano, Suomi and Svenska. The addon follows your game language automatically, and you can change it in Settings.
+
 Only players who also use the addon can see your stats. You can turn sharing off at any time in Settings.
 
 ### Getting started
