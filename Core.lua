@@ -266,8 +266,9 @@ local function MeasuredYards(speed, dt)
   local moved = math.sqrt((x - anchorX) ^ 2 + (y - anchorY) ^ 2)
   ns.state.dbgMoved, ns.state.dbgPending = moved, pending
   if moved >= pending * 0.25 then
-    SetAnchor(x, y, inst)
-    return math.min(moved, pending * 1.25) -- cap teleports, knockbacks, boats
+    local yards = math.min(moved, pending * 1.25) -- cap teleports, knockbacks, boats
+    SetAnchor(x, y, inst) -- (resets pending, so work out the distance first)
+    return yards
   end
   if pending >= speed * 0.6 then -- over half a second of pushing without really moving
     SetAnchor(x, y, inst)
