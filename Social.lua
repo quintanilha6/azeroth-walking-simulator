@@ -294,6 +294,12 @@ end
 local function Int(n) return tostring(math.floor((n or 0) + 0.5)) end
 local function Msg(kind, ...) return table.concat({ kind, VERSION, S.MyGUID() or "", ... }, ";") end
 
+-- In a party or raid? Friends see it, so their menu offers "ask to join"
+local function InGroup()
+  if IsInGroup then return IsInGroup() and true or false end
+  return ((GetNumGroupMembers and GetNumGroupMembers()) or 0) > 0
+end
+
 local function StatsMsg()
   local c = ns.cdb
   local Ch = ns.Challenges
@@ -308,7 +314,7 @@ local function StatsMsg()
     (s and not s.paused) and 1 or 0, s and Int(s.steps) or 0, c.since, ns.Achievements.MyRank(),
     ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
     (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0, -- steps/s x10
-    S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"))
+    S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"), InGroup() and 1 or 0)
 end
 
 local function ActivityMsg(a)
@@ -333,7 +339,7 @@ local lastFingerprint
 local function StatsFingerprint()
   local c, s = ns.cdb, ns.cdb.current
   return table.concat({ Int(c.total.steps), s and (s.paused and "p" or Int(s.steps)) or "-", #c.badges,
-    ns.Achievements.Count(), date("%Y-%m-%d"), UnitLevel("player") or 0,
+    ns.Achievements.Count(), date("%Y-%m-%d"), UnitLevel("player") or 0, InGroup() and 1 or 0,
     s and not s.paused and Int((ns.state.rate or 0) * 10) or 0 }, ":")
 end
 
@@ -636,6 +642,7 @@ local function HandleStats(guid, p)
   e.weekKey, e.badges = weekKey, N(p[23])
   e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
   e.features = N(p[25]) -- 0 = a version before 2.4.1
+  e.inGroup = p[28] == "1"
   -- the sender's own day and month (older versions: the time it arrived)
   e.todayKey = (p[26] and p[26] ~= "") and Clean(p[26], 12) or date("%Y-%m-%d")
   e.monthKey = (p[27] and p[27] ~= "") and Clean(p[27], 12) or ("M" .. date("%Y-%m"))

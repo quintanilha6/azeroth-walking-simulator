@@ -18,6 +18,7 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 - Teleports, hearthstones, flight paths and boats stay white dashed lines. Both now have their own entry in the route card's legend: "Auto-run / follow" and "Teleport, flight, boat".
 
 ### Changed
+- **The leaderboard's right-click menu shows one party option:** "Ask to join their party" if the player is already in a group, otherwise "Invite to party". Nothing is shown if they're in your group already. Their group status comes from their addon, so players on older versions always show "Invite to party".
 - On the Everyone channel, only about 1 in 5 players answer when someone logs in. Everyone's stats still reach newcomers within a few minutes, and the addon stays fast as more people install it.
 - The Social tab no longer recalculates your own totals 4 times a second.
 

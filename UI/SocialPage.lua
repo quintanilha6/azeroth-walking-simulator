@@ -101,10 +101,18 @@ local function PlayerActions(d)
       elseif ChatFrame_OpenChat then ChatFrame_OpenChat("/w " .. target .. " ") end
     end },
   }
+  -- One party option: ask to join if they're already in a group, otherwise
+  -- invite them; nothing if they're in your group already
   local invite = Call(C_PartyInfo and C_PartyInfo.InviteUnit, InviteUnit)
-  if invite then table.insert(list, { L["Invite to party"], function() invite(target) end }) end
   local ask = Call(C_PartyInfo and C_PartyInfo.RequestInviteFromUnit, RequestInviteFromUnit)
-  if ask then table.insert(list, { L["Ask to join their party"], function() ask(target) end }) end
+  local withMe = (UnitInParty and UnitInParty(target)) or (UnitInRaid and UnitInRaid(target))
+  if withMe then
+    -- already together
+  elseif d.e.inGroup and ask then
+    table.insert(list, { L["Ask to join their party"], function() ask(target) end })
+  elseif invite then
+    table.insert(list, { L["Invite to party"], function() invite(target) end })
+  end
   if C_FriendList and C_FriendList.AddFriend and not ns.Social.IsFriend(d.e) then
     table.insert(list, { L["Add friend"], function() C_FriendList.AddFriend(target) end })
   end
