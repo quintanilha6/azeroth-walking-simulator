@@ -247,12 +247,20 @@ local function MapPos()
   return world.x, world.y, Plain(cont) and cont or mapID
 end
 
+-- Also keeps the position in ns.state (posA, posB = UnitPosition order) for routes
 local function ReadPosition()
+  local st = ns.state
   local x, y, inst = UnitPos()
-  if x then ns.state.posSource = "unit" return x, y, inst end
+  if x then
+    st.posSource, st.posA, st.posB, st.posInst = "unit", y, x, inst
+    return x, y, inst
+  end
   x, y, inst = MapPos()
-  if x then ns.state.posSource = "map" return x, y, inst end
-  ns.state.posSource = "none"
+  if x then
+    st.posSource, st.posA, st.posB, st.posInst = "map", x, y, inst
+    return x, y, inst
+  end
+  st.posSource, st.posA, st.posB, st.posInst = "none", nil, nil, nil
   return nil
 end
 
@@ -429,6 +437,8 @@ function ns.Tick(dt)
     if active then
       s.steps, s.distance, s.moving = s.steps + steps, s.distance + yards, s.moving + dt
       if zone ~= "" then AddZone(s, zone) end
+      local st = ns.state
+      if st.posA then ns.Routes.Record(s, st.posA, st.posB, st.posInst) end
     end
     ns.state.moving = true
     ns.state.instRate = steps / dt
@@ -587,13 +597,17 @@ local function Slash(msg)
     ns.Social.ShareToChat(ns.cdb.history[1])
   elseif cmd == "testbanner" then
     ns.Banner.Test()
+  elseif cmd == "route" then
+    -- the walk in progress if it has a route, otherwise the last activity
+    local cur = ns.cdb.current
+    ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
   elseif cmd == "debug" then
     ns.debug = not ns.debug
     ns.debugInfo = { t = 0, yards = 0, speed = 0 }
     ns.Print("Debug readout " .. (ns.debug and "ON (once a second). Type /aws debug again to stop." or "OFF."))
   else
     ns.Print("Commands: /aws (window), start, pause, resume, stop, auto on|off, tracker, stats, " ..
-      "challenges, trophies, social, share, testbanner")
+      "challenges, trophies, social, share, route, testbanner, debug")
   end
 end
 

@@ -16,6 +16,7 @@
 - **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time.
 - **Social feed** with Kudos, overtake alerts and a weekly recap.
 - **Quick Share** your walk to Say, Party, Raid or Guild chat in two clicks.
+- **Routes:** see the path you walked on a Strava-style route card or on the world map, and save it as a screenshot. Recorded outdoors.
 - **All-time totals** per character and per account, a 7-day chart, streaks and personal records.
 
 ## Commands
@@ -28,6 +29,7 @@
 | `/aws challenges` / `trophies` / `social` | Open a tab |
 | `/aws stats` | Print your stats to chat |
 | `/aws share` | Put your last activity in the chat box |
+| `/aws route` | Show the route of your current or last walk |
 | `/aws tracker` | Show or hide the mini tracker |
 | `/aws testbanner` | Preview the banners |
 

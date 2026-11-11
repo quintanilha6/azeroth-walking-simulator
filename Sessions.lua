@@ -47,8 +47,10 @@ function ns.StopSession(endTime, quiet)
   if s.steps < 1 then
     if not quiet then ns.Print("Session ended with no steps - not saved.") end
   else
+    ns.Routes.Finish(s)
     table.insert(c.history, 1, s)
     while #c.history > ns.HISTORY_CAP do table.remove(c.history) end
+    ns.Routes.Trim(c.history)
     c.total.sessions = c.total.sessions + 1
     ns.SyncAccount()
     if not quiet then

@@ -184,6 +184,7 @@ local function ShowSessionTooltip(row, s)
     GameTooltip:AddLine("Kudos from: " .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
   end
   GameTooltip:AddLine(" ")
+  if ns.Routes.Has(s) then GameTooltip:AddLine("Map icon: view route", 0.5, 0.5, 0.5) end
   GameTooltip:AddLine("Click: Quick Share   Shift-click: edit in chat box", 0.5, 0.5, 0.5)
   GameTooltip:Show()
 end
@@ -209,7 +210,7 @@ local function BuildActivities(page)
       fs:SetPoint("LEFT", col[2] + 4, 0)
       fs:SetJustifyH("LEFT")
       fs:SetWordWrap(false)
-      local nextX = COLS[c + 1] and COLS[c + 1][2] or (ROW_W - 24)
+      local nextX = COLS[c + 1] and COLS[c + 1][2] or (ROW_W - 48)
       fs:SetWidth(nextX - col[2] - 6)
       r.cells[c] = fs
     end
@@ -219,6 +220,19 @@ local function BuildActivities(page)
     r.del:SetScript("OnClick", function()
       StaticPopup_Show("AWS_DELETE_SESSION", nil, nil, r.index)
     end)
+    -- Map button: open the route card (only shown when the activity has a route)
+    r.route = CreateFrame("Button", nil, r)
+    r.route:SetSize(16, 16)
+    r.route:SetPoint("RIGHT", r.del, "LEFT", -2, 0)
+    r.route:SetNormalTexture("Interface\\Icons\\INV_Misc_Map_01")
+    r.route:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    r.route:SetScript("OnClick", function() ns.RouteViewer.Open(ns.cdb.history[r.index]) end)
+    r.route:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:AddLine("View route")
+      GameTooltip:Show()
+    end)
+    r.route:SetScript("OnLeave", function() GameTooltip:Hide() end)
     r:SetScript("OnEnter", function(self) ShowSessionTooltip(self, ns.cdb.history[self.index]) end)
     r:SetScript("OnClick", function(self)
       local a = ns.cdb.history[self.index]
@@ -242,6 +256,7 @@ local function BuildActivities(page)
       r.cells[4]:SetText(F.Time(s.moving))
       r.cells[5]:SetText(F.Pace(s.moving, s.distance))
       r.cells[6]:SetText(s.zones and table.concat(s.zones, ", ") or "")
+      r.route:SetShown(ns.Routes.Has(s))
       r:Show()
     end
     for i = #hist + 1, #rows do rows[i]:Hide() end
@@ -355,7 +370,8 @@ local function BuildSettings(page)
     "not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. " ..
     "Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair.\n" ..
     "Commands: /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, /aws stats, " ..
-    "/aws challenges, /aws trophies, /aws social, /aws share, /aws testbanner. Right-click the tracker to open.")
+    "/aws challenges, /aws trophies, /aws social, /aws share, /aws route, /aws testbanner. " ..
+    "Right-click the tracker to open.")
 
   function page:Refresh()
     for key, cb in pairs(checks) do cb:SetChecked(s[key]) end

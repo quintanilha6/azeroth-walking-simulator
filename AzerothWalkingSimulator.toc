@@ -16,12 +16,14 @@
 Format.lua
 Core.lua
 Sessions.lua
+Routes.lua
 Challenges.lua
 Achievements.lua
 Social.lua
 UI\Banner.lua
 UI\Tracker.lua
 UI\QuickShare.lua
+UI\RouteViewer.lua
 UI\SocialPage.lua
 UI\ChallengesPage.lua
 UI\TrophiesPage.lua
