@@ -1,21 +1,26 @@
 local _, ns = ...
 local F = ns.F
 
--- Strava-style route card: your route drawn over the zone map, with stats,
--- a screenshot button and Quick Share. (The regular world map is left alone,
--- so it works with any map addon.)
+-- Strava-style route card with its own interactive map (the game's world map
+-- is left alone, so this works with any map addon):
+--   mouse wheel = zoom, drag = move, left-click = zoom into the zone under
+--   the cursor, right-click = go up (zone -> continent -> world).
+-- Every part of the route is drawn on whatever map you're looking at; jumps
+-- between parts (hearthstone, portals, zeppelins, mounts) are dashed lines.
 local V = {}
 ns.RouteViewer = V
 
-local CANVAS_W, CANVAS_H, PAD = 500, 280, 24
-local MAX_ZOOM = 3          -- don't blow the map art up more than this (it gets blurry)
+local CW, CH, PAD = 640, 400, 30   -- map area size and padding when fitting
+local MAX_ZOOM = 8                 -- zoom relative to "map fills the card"
+local MIN_STEP = 2                 -- pixels: skip route points closer than this on screen
 local GREEN, WHITE = { 0.2, 0.9, 0.3 }, { 1, 1, 1 }
+local JUMP_COLOR = { 0.9, 0.9, 1.0 }
 
 local IsSecret = issecretvalue or function() return false end
 local function Plain(v) return type(v) == "number" and not IsSecret(v) end
 
 ---------------------------------------------------------------------------
--- Line pools (outline lines are drawn on a lower layer than the route)
+-- Line pools
 ---------------------------------------------------------------------------
 local function NewPool(parent, layer, sublevel)
   return { parent = parent, layer = layer, sub = sublevel, items = {}, used = 0 }
@@ -28,7 +33,7 @@ local function PoolLine(pool, thickness, color, alpha)
     if pool.parent.CreateLine then
       line = pool.parent:CreateLine(nil, pool.layer, nil, pool.sub)
     else
-      line = pool.parent:CreateTexture(nil, pool.layer, nil, pool.sub) -- fallback: dots
+      line = pool.parent:CreateTexture(nil, pool.layer, nil, pool.sub)
       line.isDot = true
     end
     pool.items[pool.used] = line
@@ -44,7 +49,7 @@ local function PoolReset(pool)
   pool.used = 0
 end
 
--- (x, y) measured from the frame's top-left, y going down
+-- (x, y) from the frame's top-left, y going down
 local function Segment(pool, frame, x1, y1, x2, y2, thickness, color, alpha)
   local line = PoolLine(pool, thickness, color, alpha)
   if line.isDot then
@@ -56,10 +61,24 @@ local function Segment(pool, frame, x1, y1, x2, y2, thickness, color, alpha)
   end
 end
 
-local function Marker(frame, color)
+local function Dashed(pool, frame, x1, y1, x2, y2)
+  local dx, dy = x2 - x1, y2 - y1
+  local len = math.sqrt(dx * dx + dy * dy)
+  if len < 1 then return end
+  local DASH, GAP = 9, 6
+  local count = math.min(math.floor(len / (DASH + GAP)) + 1, 200)
+  local step = len / count
+  for i = 0, count - 1 do
+    local t1 = (i * step) / len
+    local t2 = math.min((i * step + math.min(DASH, step * 0.6)) / len, 1)
+    Segment(pool, frame, x1 + dx * t1, y1 + dy * t1, x1 + dx * t2, y1 + dy * t2, 2, JUMP_COLOR, 0.85)
+  end
+end
+
+local function Marker(frame, color, size)
   local m = frame:CreateTexture(nil, "OVERLAY", nil, 7)
   m:SetTexture("Interface\\Buttons\\WHITE8X8")
-  m:SetSize(10, 10)
+  m:SetSize(size, size)
   m:SetVertexColor(unpack(color))
   local border = frame:CreateTexture(nil, "OVERLAY", nil, 6)
   border:SetTexture("Interface\\Buttons\\WHITE8X8")
@@ -79,90 +98,331 @@ end
 local function HideMarker(m) m:Hide(); m.border:Hide() end
 
 ---------------------------------------------------------------------------
--- Map helpers: which map to show, and its picture
+-- Map math (results cached while a card is open)
 ---------------------------------------------------------------------------
--- Bounds of the route in a map's 0..1 coordinates (only segments on that continent)
-local function MapBounds(route, cont, toMap)
-  local minX, maxX, minY, maxY, other
+local cache = {}
+
+local function MapInfo(id)
+  if not (id and C_Map and C_Map.GetMapInfo) then return nil end
+  local key = "i" .. id
+  if cache[key] == nil then
+    local ok, info = pcall(C_Map.GetMapInfo, id)
+    cache[key] = (ok and type(info) == "table") and info or false
+  end
+  return cache[key] or nil
+end
+
+local function ParentOf(id)
+  local info = MapInfo(id)
+  local p = info and info.parentMapID
+  if Plain(p) and p > 0 and p ~= id then return p end
+  return nil
+end
+
+local function MapName(id)
+  local info = MapInfo(id)
+  return info and type(info.name) == "string" and info.name or "?"
+end
+
+-- World position -> this zone's 0..1 coordinates
+local function ZoneTransform(id)
+  local key = "z" .. id
+  if cache[key] == nil then
+    local cont, fn = ns.Routes.MapTransform(id)
+    cache[key] = cont and { cont, fn } or false
+  end
+  local z = cache[key]
+  if z then return z[1], z[2] end
+end
+
+-- Where a child map sits inside another map (0..1 rectangle)
+local function RectOn(child, parent)
+  if child == parent then return 0, 1, 0, 1 end
+  if not (C_Map and C_Map.GetMapRectOnMap) then return nil end
+  local key = "r" .. child .. ">" .. parent
+  if cache[key] == nil then
+    local ok, x1, x2, y1, y2 = pcall(C_Map.GetMapRectOnMap, child, parent)
+    if ok and Plain(x1) and Plain(x2) and Plain(y1) and Plain(y2) and x1 ~= x2 and y1 ~= y2 then
+      cache[key] = { x1, x2, y1, y2 }
+    else
+      cache[key] = false
+    end
+  end
+  local r = cache[key]
+  if r then return r[1], r[2], r[3], r[4] end
+end
+
+-- The map picture as tiles, plus its size in pixels
+local function MapArt(id)
+  local key = "a" .. id
+  if cache[key] == nil then
+    cache[key] = false
+    local M = C_Map
+    if M and M.GetMapArtLayers and M.GetMapArtLayerTextures then
+      local ok, layers = pcall(M.GetMapArtLayers, id)
+      local L = ok and layers and layers[1]
+      if L and Plain(L.layerWidth) and Plain(L.tileWidth) and L.tileWidth > 0 and L.tileHeight > 0 then
+        local ok2, textures = pcall(M.GetMapArtLayerTextures, id, 1)
+        if ok2 and textures and #textures > 0 then
+          local cols = math.ceil(L.layerWidth / L.tileWidth)
+          local rows = math.ceil(L.layerHeight / L.tileHeight)
+          local tiles = {}
+          for r = 1, rows do
+            for c = 1, cols do
+              local file = textures[(r - 1) * cols + c]
+              if file then
+                tiles[#tiles + 1] = { file = file, x = (c - 1) * L.tileWidth, y = (r - 1) * L.tileHeight,
+                                      w = L.tileWidth, h = L.tileHeight }
+              end
+            end
+          end
+          cache[key] = { tiles = tiles, w = L.layerWidth, h = L.layerHeight }
+        end
+      end
+    end
+  end
+  return cache[key] or nil
+end
+
+-- A function that puts this route part's points on map M (0..1), or nil
+local function SegMapper(seg, M)
+  if not seg.map then return nil end
+  local cont, toZone = ZoneTransform(seg.map)
+  if not toZone or (seg.inst and cont ~= seg.inst) then return nil end
+  if seg.map == M then return toZone end
+  local x1, x2, y1, y2 = RectOn(seg.map, M)
+  if not x1 then return nil end
+  return function(a, b)
+    local zx, zy = toZone(a, b)
+    return x1 + zx * (x2 - x1), y1 + zy * (y2 - y1)
+  end
+end
+
+-- Bounds of everything drawable on map M; also says whether all parts fit
+local function RouteOnMap(route, M)
+  local minX, maxX, minY, maxY
+  local all = true
   for _, seg in ipairs(route.segs) do
-    if seg.inst == nil or seg.inst == cont then
+    local f = SegMapper(seg, M)
+    if f then
       for i = 1, #seg.pts, 2 do
-        local x, y = toMap(seg.pts[i], seg.pts[i + 1])
+        local x, y = f(seg.pts[i], seg.pts[i + 1])
         minX, maxX = math.min(minX or x, x), math.max(maxX or x, x)
         minY, maxY = math.min(minY or y, y), math.max(maxY or y, y)
       end
     else
-      other = true
+      all = false
     end
   end
-  return minX, maxX, minY, maxY, other
+  if minX and (minX < -0.02 or maxX > 1.02 or minY < -0.02 or maxY > 1.02) then all = false end
+  return minX, maxX, minY, maxY, all
 end
 
--- Start at the zone where most of the walk was; go up to the region map if
--- the route doesn't fit in that zone.
-local function PickMap(route)
+-- Smallest map (zone, then region, continent, world) that shows the whole route
+local function DefaultMap(route)
   local main
   for _, seg in ipairs(route.segs) do
-    if not main or #seg.pts > #main.pts then main = seg end
+    if seg.map and (not main or #seg.pts > #main.pts) then main = seg end
   end
-  local mapID, fallback = main and main.map, nil
-  for _ = 1, 4 do
-    if not mapID then break end
-    local cont, toMap = ns.Routes.MapTransform(mapID)
-    if cont and (main.inst == nil or cont == main.inst) then
-      local minX, maxX, minY, maxY, other = MapBounds(route, cont, toMap)
-      local pick = { mapID = mapID, cont = cont, toMap = toMap, minX = minX, maxX = maxX, minY = minY,
-                     maxY = maxY, other = other }
-      fallback = fallback or pick
-      if minX and minX >= -0.02 and maxX <= 1.02 and minY >= -0.02 and maxY <= 1.02 then return pick end
+  local M, lastGood = main and main.map, nil
+  for _ = 1, 6 do
+    if not M then break end
+    if MapArt(M) then
+      local minX, _, _, _, all = RouteOnMap(route, M)
+      if minX then lastGood = M end
+      if all then return M end
     end
-    local ok, info = pcall(C_Map.GetMapInfo, mapID)
-    mapID = ok and info and Plain(info.parentMapID) and info.parentMapID > 0 and info.parentMapID or nil
+    M = ParentOf(M)
   end
-  return fallback
-end
-
--- The map picture as a list of tiles: { file, x, y, w, h } plus its full size
-local function MapArt(mapID)
-  local M = C_Map
-  if not (M and M.GetMapArtLayers and M.GetMapArtLayerTextures) then return nil end
-  local ok, layers = pcall(M.GetMapArtLayers, mapID)
-  local L = ok and layers and layers[1]
-  if not L or not Plain(L.layerWidth) or not Plain(L.tileWidth) or L.tileWidth <= 0 then return nil end
-  local ok2, textures = pcall(M.GetMapArtLayerTextures, mapID, 1)
-  if not ok2 or not textures or #textures == 0 then return nil end
-  local cols = math.ceil(L.layerWidth / L.tileWidth)
-  local rows = math.ceil(L.layerHeight / L.tileHeight)
-  local tiles = {}
-  for r = 1, rows do
-    for c = 1, cols do
-      local file = textures[(r - 1) * cols + c]
-      if file then
-        tiles[#tiles + 1] = { file = file, x = (c - 1) * L.tileWidth, y = (r - 1) * L.tileHeight,
-                              w = L.tileWidth, h = L.tileHeight }
-      end
-    end
-  end
-  return tiles, L.layerWidth, L.layerHeight
+  return lastGood
 end
 
 ---------------------------------------------------------------------------
 -- The card
 ---------------------------------------------------------------------------
 local card
+local view = {} -- mapID, zoom, cx, cy (center in 0..1 of the map)
 
 local function Stat(parent, x, label)
   local l = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  l:SetPoint("TOPLEFT", x, -(70 + CANVAS_H + 14))
+  l:SetPoint("TOPLEFT", x, -(70 + CH + 14))
   l:SetText(label)
   local v = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
   v:SetPoint("TOPLEFT", l, "BOTTOMLEFT", 0, -2)
   return v
 end
 
+local function CursorInCanvas()
+  local x, y = GetCursorPosition()
+  local s = card.canvas:GetEffectiveScale()
+  return x / s - card.canvas:GetLeft(), card.canvas:GetTop() - y / s
+end
+
+-- Size and position of the map for the current view (clamped so it fills the card)
+local function Layout()
+  local art = MapArt(view.mapID)
+  local base = math.max(CW / art.w, CH / art.h)
+  local scale = base * view.zoom
+  local mapW, mapH = art.w * scale, art.h * scale
+  local offX = math.min(0, math.max(CW - mapW, CW / 2 - view.cx * mapW))
+  local offY = math.min(0, math.max(CH - mapH, CH / 2 - view.cy * mapH))
+  view.cx, view.cy = (CW / 2 - offX) / mapW, (CH / 2 - offY) / mapH
+  return art, scale, mapW, mapH, offX, offY
+end
+
+local function PlaceContent()
+  local _, _, mapW, mapH, offX, offY = Layout()
+  local content = card.content
+  content:ClearAllPoints()
+  content:SetPoint("TOPLEFT", card.canvas, "TOPLEFT", offX, -offY)
+  content:SetSize(mapW, mapH)
+end
+
+-- Draw tiles, route parts and jumps for the current map and zoom
+local function Render()
+  local route = card.activity.route
+  local art, scale, mapW, mapH = Layout()
+  PlaceContent()
+
+  for i, t in ipairs(art.tiles) do
+    local tex = card.tiles[i]
+    if not tex then
+      tex = card.content:CreateTexture(nil, "BACKGROUND")
+      card.tiles[i] = tex
+    end
+    tex:SetTexture(t.file)
+    tex:ClearAllPoints()
+    tex:SetPoint("TOPLEFT", card.content, "TOPLEFT", t.x * scale, -t.y * scale)
+    tex:SetSize(t.w * scale, t.h * scale)
+    tex:Show()
+  end
+  for i = #art.tiles + 1, #card.tiles do card.tiles[i]:Hide() end
+
+  PoolReset(card.outline)
+  PoolReset(card.route)
+  PoolReset(card.jumps)
+  HideMarker(card.startMark)
+  HideMarker(card.endMark)
+
+  local layer = card.lineLayer
+  local firstPt, lastPt, prevEnd
+  local hidden = 0
+  for si, seg in ipairs(route.segs) do
+    local f = SegMapper(seg, view.mapID)
+    if f then
+      local pts = seg.pts
+      local x0, y0 = f(pts[1], pts[2])
+      local px, py = x0 * mapW, y0 * mapH
+      if si == 1 then firstPt = { px, py } end
+      -- jump from the end of the previous part to the start of this one
+      if prevEnd then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
+      for i = 3, #pts, 2 do
+        local nx, ny = f(pts[i], pts[i + 1])
+        local x, y = nx * mapW, ny * mapH
+        if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= #pts - 1 then
+          Segment(card.outline, layer, px, py, x, y, 7, { 0, 0, 0 }, 0.7)
+          Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
+          px, py = x, y
+        end
+      end
+      prevEnd = { px, py }
+      if si == #route.segs then lastPt = { px, py } end
+    else
+      prevEnd = nil -- this part isn't on this map
+      hidden = hidden + 1
+    end
+  end
+  if firstPt then ShowMarker(card.startMark, layer, firstPt[1], firstPt[2]) end
+  if lastPt then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
+
+  -- Breadcrumb: World > Kalimdor > Durotar
+  local names, id = {}, view.mapID
+  for _ = 1, 6 do
+    if not id then break end
+    table.insert(names, 1, MapName(id))
+    id = ParentOf(id)
+  end
+  card.mapName:SetText(table.concat(names, "  >  "))
+  card.hidden:SetText(hidden > 0 and ("%d part%s of this walk %s on another map. Right-click to zoom out."):format(
+    hidden, hidden == 1 and "" or "s", hidden == 1 and "is" or "are") or "")
+  card.upBtn:SetEnabled(ParentOf(view.mapID) ~= nil)
+end
+
+-- Zoom so everything drawable on this map fits
+local function FitRoute()
+  local minX, maxX, minY, maxY = RouteOnMap(card.activity.route, view.mapID)
+  local art = MapArt(view.mapID)
+  if not minX then view.zoom, view.cx, view.cy = 1, 0.5, 0.5 return end
+  local base = math.max(CW / art.w, CH / art.h)
+  local spanX = math.max((maxX - minX) * art.w * base, 1)
+  local spanY = math.max((maxY - minY) * art.h * base, 1)
+  view.zoom = math.max(1, math.min(MAX_ZOOM, (CW - PAD * 2) / spanX, (CH - PAD * 2) / spanY))
+  view.cx, view.cy = (minX + maxX) / 2, (minY + maxY) / 2
+end
+
+local function GoToMap(id, cx, cy, fit)
+  if not id or not MapArt(id) then return false end
+  view.mapID, view.zoom, view.cx, view.cy = id, 1, cx or 0.5, cy or 0.5
+  if fit then FitRoute() end
+  Render()
+  return true
+end
+
+local function ZoomBy(factor, aroundX, aroundY)
+  local _, _, mapW, mapH, offX, offY = Layout()
+  aroundX, aroundY = aroundX or CW / 2, aroundY or CH / 2
+  local px, py = (aroundX - offX) / mapW, (aroundY - offY) / mapH
+  local newZoom = math.max(1, math.min(MAX_ZOOM, view.zoom * factor))
+  if newZoom == view.zoom then return end
+  local ratio = newZoom / view.zoom
+  view.zoom = newZoom
+  -- keep the point under the cursor in place
+  local newW, newH = mapW * ratio, mapH * ratio
+  local newOffX, newOffY = aroundX - px * newW, aroundY - py * newH
+  view.cx, view.cy = (CW / 2 - newOffX) / newW, (CH / 2 - newOffY) / newH
+  Render()
+end
+
+local function ZoomOutToParent()
+  local parent = ParentOf(view.mapID)
+  if not parent or not MapArt(parent) then return end
+  local x1, x2, y1, y2 = RectOn(view.mapID, parent)
+  if x1 then
+    GoToMap(parent, x1 + view.cx * (x2 - x1), y1 + view.cy * (y2 - y1))
+  else
+    GoToMap(parent)
+  end
+end
+
+local function ZoomIntoChildAt(cx, cy)
+  local _, _, mapW, mapH, offX, offY = Layout()
+  local nx, ny = (cx - offX) / mapW, (cy - offY) / mapH
+  if not (C_Map and C_Map.GetMapInfoAtPosition) then return ZoomBy(1.6, cx, cy) end
+  local ok, info = pcall(C_Map.GetMapInfoAtPosition, view.mapID, nx, ny)
+  local child = ok and info and Plain(info.mapID) and info.mapID
+  if child and child ~= view.mapID and MapArt(child) then
+    local x1, x2, y1, y2 = RectOn(child, view.mapID)
+    if x1 then
+      return GoToMap(child, (nx - x1) / (x2 - x1), (ny - y1) / (y2 - y1))
+    end
+    return GoToMap(child)
+  end
+  ZoomBy(1.6, cx, cy)
+end
+
+local function WorldMap()
+  local id, top = view.mapID, view.mapID
+  for _ = 1, 6 do
+    local p = ParentOf(id)
+    if not p or not MapArt(p) then break end
+    top, id = p, p
+  end
+  if top ~= view.mapID then GoToMap(top, nil, nil, true) end
+end
+
 local function BuildCard()
   card = ns.CreatePanel("AWSRouteCard")
-  card:SetSize(CANVAS_W + 40, CANVAS_H + 190)
+  card:SetSize(CW + 40, CH + 190)
   card:SetPoint("CENTER")
   card:SetFrameStrata("DIALOG")
   card:SetToplevel(true)
@@ -183,7 +443,7 @@ local function BuildCard()
   card.title:SetPoint("TOPLEFT", card.brand, "BOTTOMLEFT", 0, -6)
   card.sub = card:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   card.sub:SetPoint("TOPLEFT", card.title, "BOTTOMLEFT", 0, -3)
-  card.sub:SetWidth(CANVAS_W)
+  card.sub:SetWidth(CW)
   card.sub:SetJustifyH("LEFT")
   card.sub:SetWordWrap(false)
   card.sub:SetTextColor(0.75, 0.75, 0.75)
@@ -191,65 +451,116 @@ local function BuildCard()
   card.close = CreateFrame("Button", nil, card, "UIPanelCloseButton")
   card.close:SetPoint("TOPRIGHT", -2, -2)
 
-  -- Canvas: dark background with a faint grid (used when no map is available)
+  -- Map area
   local canvas = CreateFrame("Frame", nil, card)
-  canvas:SetSize(CANVAS_W, CANVAS_H)
+  canvas:SetSize(CW, CH)
   canvas:SetPoint("TOPLEFT", 20, -70)
   if canvas.SetClipsChildren then canvas:SetClipsChildren(true) end
   local bg = canvas:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
   bg:SetTexture("Interface\\Buttons\\WHITE8X8")
   bg:SetVertexColor(0.09, 0.10, 0.12, 1)
-  card.grid = {}
-  for i = 1, 9 do
-    local v = canvas:CreateTexture(nil, "BORDER")
-    v:SetTexture("Interface\\Buttons\\WHITE8X8")
-    v:SetVertexColor(1, 1, 1, 0.04)
-    v:SetSize(1, CANVAS_H)
-    v:SetPoint("TOPLEFT", i * CANVAS_W / 10, 0)
-    card.grid[#card.grid + 1] = v
-  end
-  for i = 1, 5 do
-    local h = canvas:CreateTexture(nil, "BORDER")
-    h:SetTexture("Interface\\Buttons\\WHITE8X8")
-    h:SetVertexColor(1, 1, 1, 0.04)
-    h:SetSize(CANVAS_W, 1)
-    h:SetPoint("TOPLEFT", 0, -i * CANVAS_H / 6)
-    card.grid[#card.grid + 1] = h
-  end
   card.canvas = canvas
 
-  -- Map picture layer (zone art tiles), slightly darkened so the route stands out
-  local mapLayer = CreateFrame("Frame", nil, canvas)
-  mapLayer:SetPoint("TOPLEFT")
-  mapLayer:SetSize(1, 1)
-  card.mapLayer = mapLayer
+  local content = CreateFrame("Frame", nil, canvas)
+  content:SetPoint("TOPLEFT")
+  content:SetSize(CW, CH)
+  card.content = content
   card.tiles = {}
-  local shade = mapLayer:CreateTexture(nil, "ARTWORK") -- above the map tiles
-  shade:SetAllPoints(canvas)
+  local shade = content:CreateTexture(nil, "ARTWORK")
+  shade:SetAllPoints()
   shade:SetTexture("Interface\\Buttons\\WHITE8X8")
-  shade:SetVertexColor(0, 0, 0, 0.25)
-  card.shade = shade
+  shade:SetVertexColor(0, 0, 0, 0.2)
 
-  -- Route layer above the map
-  local lines = CreateFrame("Frame", nil, canvas)
-  lines:SetAllPoints()
-  lines:SetFrameLevel(mapLayer:GetFrameLevel() + 5)
-  card.lines = lines
-  card.outline = NewPool(lines, "ARTWORK", 1)
-  card.route = NewPool(lines, "OVERLAY", 1)
-  card.startMark = Marker(lines, GREEN)
-  card.endMark = Marker(lines, WHITE)
-  card.empty = lines:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  local lineLayer = CreateFrame("Frame", nil, content)
+  lineLayer:SetAllPoints()
+  lineLayer:SetFrameLevel(content:GetFrameLevel() + 5)
+  card.lineLayer = lineLayer
+  card.jumps = NewPool(lineLayer, "ARTWORK", 0)
+  card.outline = NewPool(lineLayer, "ARTWORK", 2)
+  card.route = NewPool(lineLayer, "OVERLAY", 1)
+  card.startMark = Marker(lineLayer, GREEN, 10)
+  card.endMark = Marker(lineLayer, WHITE, 10)
+
+  -- Overlay: map name, hint, controls
+  local over = CreateFrame("Frame", nil, canvas)
+  over:SetAllPoints()
+  over:SetFrameLevel(lineLayer:GetFrameLevel() + 10)
+  card.over = over
+  local nameBg = over:CreateTexture(nil, "BACKGROUND")
+  nameBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+  nameBg:SetVertexColor(0, 0, 0, 0.55)
+  nameBg:SetPoint("TOPLEFT")
+  nameBg:SetPoint("TOPRIGHT")
+  nameBg:SetHeight(22)
+  card.mapName = over:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  card.mapName:SetPoint("TOPLEFT", 8, -4)
+  card.hint = over:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  card.hint:SetPoint("BOTTOMLEFT", 8, 6)
+  card.hint:SetText("Scroll: zoom   Drag: move   Click: zoom into zone   Right-click: zoom out")
+  card.hint:SetTextColor(0.85, 0.85, 0.85)
+  card.hidden = over:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  card.hidden:SetPoint("BOTTOMLEFT", card.hint, "TOPLEFT", 0, 3)
+  card.hidden:SetTextColor(1, 0.82, 0)
+  card.empty = over:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   card.empty:SetPoint("CENTER")
-  card.empty:SetWidth(CANVAS_W - 40)
-  card.note = lines:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  card.note:SetPoint("BOTTOMRIGHT", -6, 5)
+  card.empty:SetWidth(CW - 60)
+
+  local function Ctl(text, width, fn)
+    local b = ns.SmallButton(over, text, width, fn)
+    b:SetHeight(18)
+    return b
+  end
+  card.worldBtn = Ctl("World", 56, WorldMap)
+  card.worldBtn:SetPoint("TOPRIGHT", -4, -2)
+  card.upBtn = Ctl("Up", 40, ZoomOutToParent)
+  card.upBtn:SetPoint("RIGHT", card.worldBtn, "LEFT", -2, 0)
+  card.fitBtn = Ctl("Fit route", 70, function() FitRoute() Render() end)
+  card.fitBtn:SetPoint("RIGHT", card.upBtn, "LEFT", -2, 0)
+  card.plusBtn = Ctl("+", 24, function() ZoomBy(1.5) end)
+  card.plusBtn:SetPoint("RIGHT", card.fitBtn, "LEFT", -2, 0)
+  card.minusBtn = Ctl("-", 24, function() ZoomBy(1 / 1.5) end)
+  card.minusBtn:SetPoint("RIGHT", card.plusBtn, "LEFT", -2, 0)
+  card.controls = { card.worldBtn, card.upBtn, card.fitBtn, card.plusBtn, card.minusBtn }
+
+  -- Mouse: wheel zoom, drag to move, click to zoom in, right-click to zoom out
+  canvas:EnableMouse(true)
+  canvas:EnableMouseWheel(true)
+  canvas:SetScript("OnMouseWheel", function(_, delta)
+    if not card.interactive then return end
+    local x, y = CursorInCanvas()
+    ZoomBy(delta > 0 and 1.25 or 1 / 1.25, x, y)
+  end)
+  canvas:SetScript("OnMouseDown", function(self, button)
+    if not card.interactive or button ~= "LeftButton" then return end
+    local x, y = CursorInCanvas()
+    self.drag = { x = x, y = y, cx = view.cx, cy = view.cy, moved = false }
+    self:SetScript("OnUpdate", function()
+      local d = self.drag
+      if not d then return end
+      local nx, ny = CursorInCanvas()
+      if math.abs(nx - d.x) + math.abs(ny - d.y) > 4 then d.moved = true end
+      if d.moved then
+        local _, _, mapW, mapH = Layout()
+        view.cx = d.cx - (nx - d.x) / mapW
+        view.cy = d.cy - (ny - d.y) / mapH
+        PlaceContent()
+      end
+    end)
+  end)
+  canvas:SetScript("OnMouseUp", function(self, button)
+    if not card.interactive then return end
+    if button == "RightButton" then ZoomOutToParent() return end
+    local d = self.drag
+    self.drag = nil
+    self:SetScript("OnUpdate", nil)
+    if d and not d.moved then ZoomIntoChildAt(d.x, d.y) end
+  end)
 
   card.dist = Stat(card, 20, "Distance")
-  card.steps = Stat(card, 150, "Steps")
-  card.time = Stat(card, 270, "Moving time")
-  card.pace = Stat(card, 390, "Avg pace")
+  card.steps = Stat(card, 180, "Steps")
+  card.time = Stat(card, 340, "Moving time")
+  card.pace = Stat(card, 500, "Avg pace")
 
   card.shotBtn = ns.SmallButton(card, "Screenshot", 120, function() V.Screenshot() end)
   card.shotBtn:SetPoint("BOTTOMLEFT", 20, 14)
@@ -259,105 +570,38 @@ local function BuildCard()
   card.shareBtn:SetPoint("LEFT", card.shotBtn, "RIGHT", 8, 0)
 end
 
-local function ClearCard()
-  PoolReset(card.outline)
-  PoolReset(card.route)
-  HideMarker(card.startMark)
-  HideMarker(card.endMark)
-  for _, t in ipairs(card.tiles) do t:Hide() end
-  card.shade:Hide()
-  card.note:SetText("")
-  for _, g in ipairs(card.grid) do g:Show() end
-end
-
--- Draw the route through toXY(a, b) -> canvas x, y
-local function DrawLines(route, toXY, onlyCont)
-  local first, last
-  for pass = 1, 2 do
-    for _, seg in ipairs(route.segs) do
-      if not onlyCont or seg.inst == nil or seg.inst == onlyCont then
-        local pts = seg.pts
-        local px, py = toXY(pts[1], pts[2])
-        if pass == 2 and not first then first = { px, py } end
-        for i = 3, #pts, 2 do
-          local x, y = toXY(pts[i], pts[i + 1])
-          if pass == 1 then
-            Segment(card.outline, card.lines, px, py, x, y, 7, { 0, 0, 0 }, 0.75)
-          else
-            Segment(card.route, card.lines, px, py, x, y, 3.5, ns.ORANGE, 1)
-          end
-          px, py = x, y
-        end
-        if pass == 2 then last = { px, py } end
-      end
-    end
-  end
-  if first then ShowMarker(card.startMark, card.lines, first[1], first[2]) end
-  if last then ShowMarker(card.endMark, card.lines, last[1], last[2]) end
-end
-
--- Route on top of the zone map. Returns false if the map can't be used.
-local function DrawOnZoneMap(route)
-  local pick = PickMap(route)
-  if not pick or not pick.minX then return false end
-  local tiles, artW, artH = MapArt(pick.mapID)
-  if not tiles then return false end
-
-  -- Zoom so the route fills the card, but keep the map covering the whole card
-  local spanX = math.max((pick.maxX - pick.minX) * artW, 1)
-  local spanY = math.max((pick.maxY - pick.minY) * artH, 1)
-  local zoom = math.min((CANVAS_W - PAD * 2) / spanX, (CANVAS_H - PAD * 2) / spanY, MAX_ZOOM)
-  zoom = math.max(zoom, CANVAS_W / artW, CANVAS_H / artH)
-  local mapW, mapH = artW * zoom, artH * zoom
-  local cx = (pick.minX + pick.maxX) / 2 * mapW
-  local cy = (pick.minY + pick.maxY) / 2 * mapH
-  local offX = math.min(0, math.max(CANVAS_W - mapW, CANVAS_W / 2 - cx))
-  local offY = math.min(0, math.max(CANVAS_H - mapH, CANVAS_H / 2 - cy))
-
-  local layer = card.mapLayer
-  layer:ClearAllPoints()
-  layer:SetPoint("TOPLEFT", card.canvas, "TOPLEFT", offX, -offY)
-  layer:SetSize(mapW, mapH)
-  for i, t in ipairs(tiles) do
-    local tex = card.tiles[i]
-    if not tex then
-      tex = layer:CreateTexture(nil, "BACKGROUND")
-      card.tiles[i] = tex
-    end
-    tex:SetTexture(t.file)
-    tex:ClearAllPoints()
-    tex:SetPoint("TOPLEFT", layer, "TOPLEFT", t.x * zoom, -t.y * zoom)
-    tex:SetSize(t.w * zoom, t.h * zoom)
-    tex:Show()
-  end
-  for _, g in ipairs(card.grid) do g:Hide() end
-  card.shade:Show()
-
-  local toMap = pick.toMap
-  DrawLines(route, function(a, b)
-    local nx, ny = toMap(a, b)
-    return offX + nx * mapW, offY + ny * mapH
-  end, pick.cont)
-  local name = ""
-  local ok, info = pcall(C_Map.GetMapInfo, pick.mapID)
-  if ok and info and type(info.name) == "string" then name = info.name end
-  card.note:SetText(name .. (pick.other and "  (part of this walk was on another continent)" or ""))
-  return true
-end
-
--- Fallback: just the route's shape on the dark grid
+-- No usable map on this client: draw just the route's shape, scaled to fit
 local function DrawShapeOnly(route)
+  card.content:ClearAllPoints()
+  card.content:SetPoint("TOPLEFT")
+  card.content:SetSize(CW, CH)
+  for _, t in ipairs(card.tiles) do t:Hide() end
   local minA, maxA, minB, maxB = ns.Routes.Bounds(route)
   local spanA, spanB = math.max(maxA - minA, 1), math.max(maxB - minB, 1)
-  local scale = math.min((CANVAS_W - PAD * 2) / spanB, (CANVAS_H - PAD * 2) / spanA)
-  local offX = (CANVAS_W - spanB * scale) / 2
-  local offY = (CANVAS_H - spanA * scale) / 2
-  DrawLines(route, function(a, b) return offX + (maxB - b) * scale, offY + (maxA - a) * scale end)
+  local scale = math.min((CW - PAD * 2) / spanB, (CH - PAD * 2) / spanA)
+  local offX, offY = (CW - spanB * scale) / 2, (CH - spanA * scale) / 2
+  local layer, prevEnd = card.lineLayer, nil
+  for si, seg in ipairs(route.segs) do
+    local pts = seg.pts
+    local px, py = offX + (maxB - pts[2]) * scale, offY + (maxA - pts[1]) * scale
+    if si == 1 then ShowMarker(card.startMark, layer, px, py) end
+    if prevEnd and seg.inst == prevEnd.inst then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
+    for i = 3, #pts, 2 do
+      local x, y = offX + (maxB - pts[i + 1]) * scale, offY + (maxA - pts[i]) * scale
+      Segment(card.outline, layer, px, py, x, y, 7, { 0, 0, 0 }, 0.7)
+      Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
+      px, py = x, y
+    end
+    prevEnd = { px, py, inst = seg.inst }
+  end
+  if prevEnd then ShowMarker(card.endMark, layer, prevEnd[1], prevEnd[2]) end
+  card.mapName:SetText("Route shape (map not available)")
 end
 
 function V.Open(s)
   if not s then return ns.Print("No activity to show yet.") end
   if not card then BuildCard() end
+  wipe(cache)
   card.activity = s
   local live = s == ns.cdb.current
   card.title:SetText(UnitName("player") .. (live and "  -  walking now" or ""))
@@ -368,27 +612,49 @@ function V.Open(s)
   card.time:SetText(F.Time(s.moving))
   card.pace:SetText(F.Pace(s.moving, s.distance))
 
-  ClearCard()
+  PoolReset(card.outline); PoolReset(card.route); PoolReset(card.jumps)
+  HideMarker(card.startMark); HideMarker(card.endMark)
+  card.hidden:SetText("")
+  card.interactive = false
+
   if not ns.Routes.Has(s) then
+    for _, t in ipairs(card.tiles) do t:Hide() end
+    card.mapName:SetText("")
     card.empty:SetText("No route for this activity.\nRoutes are recorded outdoors only: the game hides your " ..
       "position in dungeons. Older activities keep only their numbers.")
     card.empty:Show()
+    for _, b in ipairs(card.controls) do b:Hide() end
+    card.hint:Hide()
   else
     card.empty:Hide()
-    if not DrawOnZoneMap(s.route) then DrawShapeOnly(s.route) end
+    local M = DefaultMap(s.route)
+    if M then
+      card.interactive = true
+      for _, b in ipairs(card.controls) do b:Show() end
+      card.hint:Show()
+      GoToMap(M, nil, nil, true)
+    else
+      for _, b in ipairs(card.controls) do b:Hide() end
+      card.hint:Hide()
+      DrawShapeOnly(s.route)
+    end
   end
   card:Show()
 end
 
--- Screenshot of the card (buttons hidden for a clean picture)
+-- Screenshot of the card (buttons and hints hidden for a clean picture)
 function V.Screenshot()
   if not card or not card:IsShown() then return end
   if not Screenshot then return ns.Print("Screenshots aren't available on this client.") end
-  local buttons = { card.shotBtn, card.shareBtn, card.close }
-  for _, b in ipairs(buttons) do b:Hide() end
+  local hide = { card.shotBtn, card.shareBtn, card.close, card.hint }
+  for _, b in ipairs(card.controls) do hide[#hide + 1] = b end
+  local wasShown = {}
+  for i, f in ipairs(hide) do wasShown[i] = f:IsShown(); f:Hide() end
   C_Timer.After(0.1, function()
     Screenshot()
-    C_Timer.After(0.3, function() for _, b in ipairs(buttons) do b:Show() end end)
+    C_Timer.After(0.3, function()
+      for i, f in ipairs(hide) do if wasShown[i] then f:Show() end end
+    end)
     ns.Print("Screenshot saved to your WoW Screenshots folder.")
   end)
 end
