@@ -355,4 +355,12 @@ L["|cffffd100Achievements|r %d/%d     |cffffd100Weekly challenges|r %d     "] = 
 L["|cffffd100Monthly|r %d     |cffffd100Weekly Champion|r x%d"] = "|cffffd100Monatlich|r %d     |cffffd100Wochenchampion|r x%d"
 L["|cffffd100You are this week's Weekly Champion!|r"] = "|cffffd100Du bist der Wochenchampion dieser Woche!|r"
 
+L["Right-click: whisper, invite to party..."] = "Rechtsklick: flüstern, in Gruppe einladen..."
+L["Whisper"] = "Flüstern"
+L["Invite to party"] = "In Gruppe einladen"
+L["Ask to join their party"] = "Beitritt zur Gruppe anfragen"
+L["Add friend"] = "Freund hinzufügen"
+L[" |cff888888(offline)|r"] = " |cff888888(offline)|r"
+L["Cancel"] = "Abbrechen"
+
 ns.RegisterLocale("deDE", L)

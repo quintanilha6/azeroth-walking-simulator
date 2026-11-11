@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.3] - 2026-11-11
+
+### Added
+- **Right-click a player on the leaderboard** to whisper them, invite them to your party, ask to join their party, or add them as a friend. The options are greyed out while they're offline.
+
 ## [2.4.2] - 2026-11-11
 
 ### Fixed

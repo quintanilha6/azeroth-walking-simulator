@@ -75,7 +75,76 @@ local function BoardTooltip(row, d)
   if d.e and d.e.since and d.e.since > 0 then AddLine(L["Walking since"], F.Day(d.e.since)) end
   GameTooltip:AddLine(" ")
   GameTooltip:AddLine(L["Ranks come from all-time steps. See them all in the Trophies tab."], 0.5, 0.5, 0.5, true)
+  if not d.me then GameTooltip:AddLine(L["Right-click: whisper, invite to party..."], 0.5, 0.5, 0.5) end
   GameTooltip:Show()
+end
+
+---------------------------------------------------------------------------
+-- Right-click menu on a player: whisper, invite, ask to join, add friend
+---------------------------------------------------------------------------
+local menuFrame
+
+local function Call(...)
+  for i = 1, select("#", ...) do
+    local f = select(i, ...)
+    if f then return f end
+  end
+end
+
+local function PlayerActions(d)
+  local full = d.e and d.e.name
+  if not full then return nil end
+  local target = Ambiguate and Ambiguate(full, "none") or full -- no realm when it's yours
+  local list = {
+    { L["Whisper"], function()
+      if ChatFrame_SendTell then ChatFrame_SendTell(target)
+      elseif ChatFrame_OpenChat then ChatFrame_OpenChat("/w " .. target .. " ") end
+    end },
+  }
+  local invite = Call(C_PartyInfo and C_PartyInfo.InviteUnit, InviteUnit)
+  if invite then table.insert(list, { L["Invite to party"], function() invite(target) end }) end
+  local ask = Call(C_PartyInfo and C_PartyInfo.RequestInviteFromUnit, RequestInviteFromUnit)
+  if ask then table.insert(list, { L["Ask to join their party"], function() ask(target) end }) end
+  if C_FriendList and C_FriendList.AddFriend and not ns.Social.IsFriend(d.e) then
+    table.insert(list, { L["Add friend"], function() C_FriendList.AddFriend(target) end })
+  end
+  return list
+end
+
+local function OpenPlayerMenu(owner, d)
+  if not d or d.me then return end
+  local actions = PlayerActions(d)
+  if not actions then return end
+  GameTooltip:Hide()
+  local title = ns.Social.ColoredName(d.guid) .. (d.online and "" or L[" |cff888888(offline)|r"])
+
+  if MenuUtil and MenuUtil.CreateContextMenu then
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+      root:CreateTitle(title)
+      for _, a in ipairs(actions) do
+        local b = root:CreateButton(a[1], a[2])
+        if not d.online and b.SetEnabled then b:SetEnabled(false) end
+      end
+    end)
+    return
+  end
+
+  if not (UIDropDownMenu_Initialize and ToggleDropDownMenu) then return end
+  menuFrame = menuFrame or CreateFrame("Frame", "AWSPlayerMenu", UIParent, "UIDropDownMenuTemplate")
+  UIDropDownMenu_Initialize(menuFrame, function(_, level)
+    local info = UIDropDownMenu_CreateInfo()
+    info.text, info.isTitle, info.notCheckable = title, true, true
+    UIDropDownMenu_AddButton(info, level)
+    for _, a in ipairs(actions) do
+      info = UIDropDownMenu_CreateInfo()
+      info.text, info.func, info.notCheckable, info.disabled = a[1], a[2], true, not d.online
+      UIDropDownMenu_AddButton(info, level)
+    end
+    info = UIDropDownMenu_CreateInfo()
+    info.text, info.notCheckable, info.func = CANCEL or L["Cancel"], true, function() CloseDropDownMenus() end
+    UIDropDownMenu_AddButton(info, level)
+  end, "MENU")
+  ToggleDropDownMenu(1, nil, menuFrame, "cursor", 0, 0)
 end
 
 local function BuildBoard(box)
@@ -104,6 +173,10 @@ local function BuildBoard(box)
     r.arrow:SetPoint("LEFT", 320, 0)
     r.arrow:Hide()
     r:SetScript("OnEnter", function(self) BoardTooltip(self, self.data) end)
+    r:RegisterForClicks("RightButtonUp")
+    r:SetScript("OnClick", function(self, button)
+      if button == "RightButton" then OpenPlayerMenu(self, self.data) end
+    end)
     rows[i] = r
     return r
   end
