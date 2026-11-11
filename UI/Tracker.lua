@@ -61,7 +61,7 @@ end
 function ns.CreateTracker()
   if ns.Tracker then return end
   local f = ns.CreatePanel("AWSTracker")
-  f:SetSize(252, 112)
+  f:SetSize(312, 112)
   f:SetFrameStrata("MEDIUM")
   f:SetClampedToScreen(true)
   f:SetMovable(true)
@@ -140,8 +140,15 @@ function ns.CreateTracker()
   shareBtn = ns.SmallButton(f, "Share", 58, function() ns.QuickShare.Open(shareBtn) end)
   shareBtn:SetPoint("LEFT", stopBtn, "RIGHT", 2, 0)
 
+  -- Route card for the walk in progress, or the last activity (same as /aws route)
+  local routeBtn = ns.SmallButton(f, "Route", 58, function()
+    local cur = ns.cdb.current
+    ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
+  end)
+  routeBtn:SetPoint("LEFT", shareBtn, "RIGHT", 2, 0)
+
   local openBtn = ns.SmallButton(f, "Stats", 58, function() ns.ToggleWindow() end)
-  openBtn:SetPoint("LEFT", shareBtn, "RIGHT", 2, 0)
+  openBtn:SetPoint("LEFT", routeBtn, "RIGHT", 2, 0)
 
   function f:Refresh()
     local cur = ns.cdb.current

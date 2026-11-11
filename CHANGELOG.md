@@ -10,7 +10,7 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 - The card's map shows the areas you've explored, just like your game map. Unexplored areas stay blank, as they do there.
 - Your route is an orange line with a green start and white finish, and **every part of the walk is drawn on whatever map you look at**. Use "World" to see walks on several continents at once.
 - **Jumps** (hearthstone, portals, zeppelins, boats, flight paths, mount rides) are shown as **dashed lines** between where you stopped walking and where you started again.
-- Distance, steps, moving time and pace on the card. Open it with the map icon on an activity in the Activities tab, or `/aws route` for your current or last walk.
+- Distance, steps, moving time and pace on the card. Open it with the new **Route** button on the mini tracker, the map icon on an activity in the Activities tab, or `/aws route` for your current or last walk.
 - The regular world map is left untouched, so the addon works alongside any map addon.
 - **Screenshot** button on the route card saves a clean picture to your Screenshots folder.
 - Routes are simplified when an activity is finished, and kept for the newest 30 activities, so saved data stays small. Very long walks are simplified along the way instead of stopping the recording.
