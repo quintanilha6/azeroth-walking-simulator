@@ -220,12 +220,37 @@ end
 -- against where you actually are. Position is hidden in instances; there we
 -- fall back to speed (rule 1 still applies).
 ---------------------------------------------------------------------------
-local function ReadPosition()
+local function Plain(v) return type(v) == "number" and not IsSecret(v) end
+
+-- Source 1: world coordinates in yards
+local function UnitPos()
   if not UnitPosition then return nil end
   local ok, y, x, _, inst = pcall(UnitPosition, "player")
-  if not ok or type(x) ~= "number" or type(y) ~= "number" or IsSecret(x) or IsSecret(y) then return nil end
+  if not ok or not Plain(x) or not Plain(y) then return nil end
   if IsSecret(inst) then inst = nil end
   return x, y, inst
+end
+
+-- Source 2: the world map position, converted back to world yards
+local function MapPos()
+  local M = C_Map
+  if not (M and M.GetBestMapForUnit and M.GetPlayerMapPosition and M.GetWorldPosFromMapPos) then return nil end
+  local ok, mapID = pcall(M.GetBestMapForUnit, "player")
+  if not ok or not Plain(mapID) then return nil end
+  local ok2, pos = pcall(M.GetPlayerMapPosition, mapID, "player")
+  if not ok2 or type(pos) ~= "table" or not Plain(pos.x) or not Plain(pos.y) then return nil end
+  local ok3, cont, world = pcall(M.GetWorldPosFromMapPos, mapID, pos)
+  if not ok3 or type(world) ~= "table" or not Plain(world.x) or not Plain(world.y) then return nil end
+  return world.x, world.y, Plain(cont) and cont or mapID
+end
+
+local function ReadPosition()
+  local x, y, inst = UnitPos()
+  if x then ns.state.posSource = "unit" return x, y, inst end
+  x, y, inst = MapPos()
+  if x then ns.state.posSource = "map" return x, y, inst end
+  ns.state.posSource = "none"
+  return nil
 end
 
 -- Last confirmed position, and how far speed says we should have gone since
@@ -239,6 +264,7 @@ local function MeasuredYards(speed, dt)
   if not anchorX or anchorInst ~= inst then SetAnchor(x, y, inst) return 0 end -- first reading / new zone
   pending = pending + speed * dt
   local moved = math.sqrt((x - anchorX) ^ 2 + (y - anchorY) ^ 2)
+  ns.state.dbgMoved, ns.state.dbgPending = moved, pending
   if moved >= pending * 0.25 then
     SetAnchor(x, y, inst)
     return math.min(moved, pending * 1.25) -- cap teleports, knockbacks, boats
@@ -282,6 +308,18 @@ function ns.Tick(dt)
     ResetAnchor()
   end
   ns.state.reason, ns.state.speed = reason, speed
+
+  -- /aws debug: once a second, show what the counter sees
+  if ns.debug then
+    local d = ns.debugInfo
+    d.t, d.yards, d.speed = d.t + dt, d.yards + yards, d.speed + speed * dt
+    if d.t >= 1 then
+      ns.Print(("debug: keys=%s  pos=%s  speed-says=%.2f yd  counted=%.2f yd  last moved=%.2f / expected %.2f  status=%s")
+        :format(ns.HoldingMoveInput() and "held" or "no", ns.state.posSource or "?", d.speed, d.yards,
+          ns.state.dbgMoved or 0, ns.state.dbgPending or 0, tostring(reason or "counting")))
+      d.t, d.yards, d.speed = 0, 0, 0
+    end
+  end
 
   local s = c.current
   local active = s and not s.paused
@@ -469,6 +507,10 @@ local function Slash(msg)
     ns.Social.ShareToChat(ns.cdb.history[1])
   elseif cmd == "testbanner" then
     ns.Banner.Test()
+  elseif cmd == "debug" then
+    ns.debug = not ns.debug
+    ns.debugInfo = { t = 0, yards = 0, speed = 0 }
+    ns.Print("Debug readout " .. (ns.debug and "ON (once a second). Type /aws debug again to stop." or "OFF."))
   else
     ns.Print("Commands: /aws (window), start, pause, resume, stop, auto on|off, tracker, stats, " ..
       "challenges, trophies, social, share, testbanner")
