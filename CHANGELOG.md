@@ -2,6 +2,21 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.4.4] - 2026-11-11
+
+### Fixed
+- **Boats and zeppelins no longer count as steps.** Holding W against the railing during the ride used to count the trip as walking. Now when something carries you faster than you can run, it doesn't count, and the tracker shows "Not counting: On a boat or zeppelin".
+- **In dungeons, holding both mouse buttons into a wall no longer counts forever.** Steering counts as activity for up to 30 seconds in a row; after that you need to turn, jump, strafe, cast or fight to keep counting.
+- **Protection against spam from modified addons:**
+  - A friend or guildie can post at most 8 news items a minute (activities, challenges, achievements, rank-ups).
+  - News with fake periods or ranks is ignored.
+  - Text from other players is cleaned, so it can't show fake links or images in your Feed.
+- Friends' challenge completions are now cleaned up after two months instead of being saved forever.
+
+### Changed
+- On the Everyone channel, only about 1 in 5 players answer when someone logs in. Everyone's stats still reach newcomers within a few minutes, and the addon stays fast as more people install it.
+- The Social tab no longer recalculates your own totals 4 times a second.
+
 ## [2.4.3] - 2026-11-11
 
 ### Added

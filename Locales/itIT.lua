@@ -363,4 +363,6 @@ L["Add friend"] = "Aggiungi amico"
 L[" |cff888888(offline)|r"] = " |cff888888(offline)|r"
 L["Cancel"] = "Annulla"
 
+L["On a boat or zeppelin"] = "Su una nave o uno zeppelin"
+
 ns.RegisterLocale("itIT", L)

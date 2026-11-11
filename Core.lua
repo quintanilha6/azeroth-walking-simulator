@@ -32,6 +32,7 @@ ns.REASON_TEXT = {
   dead = "Dead", taxi = "Flight path", vehicle = "Vehicle",
   mounted = "Mounted", flying = "Flying", swimming = "Swimming",
   follow = "Following", noinput = "Auto-run", blocked = "Blocked", afk = "AFK", idle = "Idle (steer)",
+  carried = "On a boat or zeppelin",
 }
 
 function ns.Print(msg)
@@ -284,7 +285,10 @@ local function MeasuredYards(speed, dt)
   local moved = math.sqrt((x - anchorX) ^ 2 + (y - anchorY) ^ 2)
   ns.state.dbgMoved, ns.state.dbgPending = moved, pending
   if moved >= pending * 0.25 then
-    local yards = math.min(moved, pending * 1.25) -- cap teleports, knockbacks, boats
+    -- Moving far faster than your own speed means something carries you
+    -- (boat, zeppelin, knockback, teleport): that part isn't walking
+    if moved > pending * 2 then SetAnchor(x, y, inst) return 0, "carried" end
+    local yards = math.min(moved, pending * 1.25)
     SetAnchor(x, y, inst) -- (resets pending, so work out the distance first)
     return yards
   end
@@ -309,6 +313,8 @@ local function ResetAnchor() SetAnchor(nil) end
 local IDLE_LIMIT = 5
 local lastActive = GetTime()
 local lastCursorX, lastCursorY, lastFacing
+local STEER_CREDIT = 30
+local steerSince
 local ACTIVE_BINDINGS = { "TURNLEFT", "TURNRIGHT", "STRAFELEFT", "STRAFERIGHT", "JUMP", "MOVEBACKWARD" }
 
 local function MarkActive() lastActive = GetTime() end
@@ -334,7 +340,14 @@ local function SampleActivity()
   end
   -- If this client can't show mouse movement while you steer with the right
   -- mouse button, holding it has to count as actively playing
-  if steering and not ns.state.deltaWhileSteering then MarkActive() end
+  -- (for up to STEER_CREDIT seconds in a row; after that a real sign of play is
+  -- needed, so a held-down mouse can't run into a wall forever)
+  if steering then
+    steerSince = steerSince or GetTime()
+    if not ns.state.deltaWhileSteering and GetTime() - steerSince < STEER_CREDIT then MarkActive() end
+  else
+    steerSince = nil
+  end
   -- turned around (covers steering with the right mouse button, where readable)
   if GetPlayerFacing then
     local ok, f = pcall(GetPlayerFacing)
@@ -392,8 +405,15 @@ function ns.Tick(dt)
   if not reason and speed > 0 then
     local why
     yards, why = MeasuredYards(speed, dt)
-    if why then ns.state.blockedUntil = GetTime() + 1 end
-    if yards == 0 and (ns.state.blockedUntil or 0) > GetTime() then reason = "blocked" end
+    if why == "carried" then
+      ns.state.carriedUntil = GetTime() + 3
+    elseif why then
+      ns.state.blockedUntil = GetTime() + 1
+    end
+    -- on a boat you only move faster than walking now and then (the position
+    -- updates in jumps), so keep not counting for a moment after each one
+    if (ns.state.carriedUntil or 0) > GetTime() then yards, reason = 0, "carried"
+    elseif yards == 0 and (ns.state.blockedUntil or 0) > GetTime() then reason = "blocked" end
     -- Position hidden (dungeons): only count while you're actively playing
     if yards > 0 and ns.state.posSource == "none" and ns.IdleSeconds() > IDLE_LIMIT then
       yards, reason = 0, "idle"

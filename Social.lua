@@ -575,6 +575,36 @@ end
 ---------------------------------------------------------------------------
 local function N(v) return tonumber(v) or 0 end
 
+-- Text from other players is shown in the Feed and tooltips: drop WoW's
+-- escape codes (|T textures, |H links, |c colors) and keep it short
+local function Clean(s, maxLen)
+  return ((tostring(s or ""):gsub("|", "")):sub(1, maxLen or 40))
+end
+
+-- A friend can only post a few news items a minute (activities + events);
+-- anything beyond that is ignored, so nobody can flood your screen
+local NEWS_PER_MINUTE = 8
+local newsLog = {} -- [guid] = { times }
+local function AllowNews(guid)
+  local now, log = GetTime(), newsLog[guid] or {}
+  newsLog[guid] = log
+  while log[1] and now - log[1] > 60 do table.remove(log, 1) end
+  if #log >= NEWS_PER_MINUTE then return false end
+  log[#log + 1] = now
+  return true
+end
+
+-- Challenge periods that can still matter: last, this and next week/month
+-- (next, for friends whose new week has already started in their time zone)
+local function LivePeriods()
+  local Ch = ns.Challenges
+  local w, m = Ch.WeekPeriod(), Ch.MonthPeriod()
+  return {
+    [w.key] = true, [Ch.WeekPeriod(w.startTs - 3 * 86400).key] = true, [Ch.WeekPeriod(w.endTs + 3 * 86400).key] = true,
+    [m.key] = true, [Ch.MonthPeriod(m.startTs - 3 * 86400).key] = true, [Ch.MonthPeriod(m.endTs + 3 * 86400).key] = true,
+  }
+end
+
 -- No one can walk more than this on foot in a day (8 yd/s for 24 h, 2 yd steps)
 local DAY_MAX = 350000
 local EPOCH = time({ year = 2026, month = 11, day = 1, hour = 0 }) -- before the first release
@@ -593,7 +623,7 @@ local function HandleStats(guid, p)
     return
   end
   e.flagged = nil
-  local weekKey = p[22] or ""
+  local weekKey = Clean(p[22], 12)
   if e.weekKey and e.weekKey ~= weekKey then
     e.prevWeekKey, e.prevWeek = e.weekKey, e.week -- keep last week for the recap
   end
@@ -607,8 +637,8 @@ local function HandleStats(guid, p)
   e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
   e.features = N(p[25]) -- 0 = a version before 2.4.1
   -- the sender's own day and month (older versions: the time it arrived)
-  e.todayKey = (p[26] and p[26] ~= "") and p[26] or date("%Y-%m-%d")
-  e.monthKey = (p[27] and p[27] ~= "") and p[27] or ("M" .. date("%Y-%m"))
+  e.todayKey = (p[26] and p[26] ~= "") and Clean(p[26], 12) or date("%Y-%m-%d")
+  e.monthKey = (p[27] and p[27] ~= "") and Clean(p[27], 12) or ("M" .. date("%Y-%m"))
   CheckOvertakes(guid)
 end
 
@@ -619,8 +649,12 @@ local function HandleActivity(guid, p)
   for _, f in ipairs(feed) do
     if f.from == guid and f.id == id and not f.event then return end
   end
+  if not AllowNews(guid) then return end
   local zones = {}
-  for z in (p[10] or ""):gmatch("[^,]+") do table.insert(zones, z) end
+  for z in (p[10] or ""):gmatch("[^,]+") do
+    z = Clean(z)
+    if z ~= "" and #zones < 10 then table.insert(zones, z) end
+  end
   local item = { from = guid, id = id, steps = N(p[5]), distance = N(p[6]), moving = N(p[7]),
                  elapsed = N(p[8]), finish = N(p[9]), zones = zones, received = time() }
   table.insert(feed, item)
@@ -676,6 +710,15 @@ end
 
 local function HandleEvent(guid, p)
   local kind, id, period = p[4], p[5], p[6] or ""
+  if kind == "r" then
+    local r = tonumber(id)
+    if not r or r < 2 or r > #ns.Achievements.RANKS or r ~= math.floor(r) then return end
+  end
+  if kind == "c" or kind == "w" then
+    if not LivePeriods()[period] then return end -- unknown or long-gone period
+  else
+    period = "" -- achievements and ranks don't belong to a period
+  end
   local text, icon = EventText(kind, id)
   if not text then return end
 
@@ -691,6 +734,7 @@ local function HandleEvent(guid, p)
   for _, f in ipairs(feed) do
     if f.event and f.from == guid and f.kind == kind and f.eid == id and f.period == period then return end
   end
+  if not AllowNews(guid) then return end
   table.insert(feed, 1, { event = true, from = guid, kind = kind, eid = id, period = period, finish = time(),
                           text = text, icon = icon })
   while #feed > FEED_CAP do table.remove(feed) end
@@ -728,6 +772,9 @@ local function OnMessage(msg, name, dest, via)
   if via == "BN" then e.bnFriend = true end
 
   if kind == "H" then
+    -- On the busy Everyone channel only about 1 in 5 players answer a hello;
+    -- the rest reach the newcomer with their regular updates within minutes
+    if via == "CHANNEL" and math.random() > 0.2 then return ns.OnSocialChanged() end
     local delay = via == "CHANNEL" and (2 + math.random() * 20) or (1 + math.random() * 4)
     C_Timer.After(delay, function() ReplyToHello(dest, via == "CHANNEL") end)
   elseif kind == "S" then
@@ -768,16 +815,25 @@ local function LiveExtra(e)
 end
 
 -- period: "today" | "week" | "month" | "all"
+local myRow, myRowKey
+
 function S.Leaderboard(period, category)
   local Ch = ns.Challenges
   local todayKey, weekKey, monthKey = date("%Y-%m-%d"), Ch.WeekPeriod().key, "M" .. date("%Y-%m")
   local c = ns.cdb
   local cur = c.current
+  -- week, month, streak and challenges only change when you walk or a day starts
+  local fp = math.floor(c.total.steps) .. ":" .. todayKey .. ":" .. #c.badges
+  if fp ~= myRowKey then
+    myRowKey = fp
+    myRow = { week = Ch.WeekSteps(), month = Ch.MonthSteps(), streak = (ns.Streaks()),
+              weekDone = Ch.WeekChallengesDone() }
+  end
   local me = {
     guid = S.MyGUID(), me = true, online = true, active = cur and not cur.paused, sessionSteps = cur and cur.steps or 0,
-    today = ns.GetDay(todayKey).s, week = Ch.WeekSteps(), month = Ch.MonthSteps(), all = c.total.steps,
-    streak = (ns.Streaks()), rank = ns.Achievements.MyRank(), trophies = ns.Achievements.Count() + #c.badges,
-    weekDone = Ch.WeekChallengesDone(), walking = ns.state.moving and cur and not cur.paused,
+    today = ns.GetDay(todayKey).s, week = myRow.week, month = myRow.month, all = c.total.steps,
+    streak = myRow.streak, rank = ns.Achievements.MyRank(), trophies = ns.Achievements.Count() + #c.badges,
+    weekDone = myRow.weekDone, walking = ns.state.moving and cur and not cur.paused,
   }
   local rows = { me }
   for guid, e in pairs(ns.db.social.people) do
@@ -828,6 +884,12 @@ end
 
 -- Forget strangers not seen for 60 days, and keep the list a sane size
 local function Prune()
+  -- friends' challenge completions: only periods that can still matter
+  local live, comp = LivePeriods(), ns.db.social.completions
+  for key in pairs(comp) do
+    if not live[key] then comp[key] = nil end
+  end
+
   local people, cutoff = ns.db.social.people, time() - 60 * 86400
   local list = {}
   for guid, e in pairs(people) do
