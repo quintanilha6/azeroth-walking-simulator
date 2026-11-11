@@ -394,6 +394,13 @@ function ns.Tick(dt)
     end
   else
     ResetAnchor()
+    -- Riding a mount: no steps, but draw it on the route (in mount colors)
+    local cur = ns.cdb.current
+    if reason == "mounted" and speed > 0 and cur and not cur.paused then
+      ReadPosition()
+      local st = ns.state
+      if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, speed) end
+    end
   end
   ns.state.reason, ns.state.speed = reason, speed
 
@@ -442,7 +449,7 @@ function ns.Tick(dt)
       s.steps, s.distance, s.moving = s.steps + steps, s.distance + yards, s.moving + dt
       if zone ~= "" then AddZone(s, zone) end
       local st = ns.state
-      if st.posA then ns.Routes.Record(s, st.posA, st.posB, st.posInst) end
+      if st.posA then ns.Routes.Record(s, st.posA, st.posB, st.posInst, speed) end
     end
     ns.state.moving = true
     ns.state.instRate = steps / dt

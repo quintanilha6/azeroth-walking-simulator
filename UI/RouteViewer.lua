@@ -250,7 +250,7 @@ local function RouteOnMap(route, M)
   for _, seg in ipairs(route.segs) do
     local f = SegMapper(seg, M)
     if f then
-      for i = 1, #seg.pts, 2 do
+      for i = 1, #seg.pts, ns.Routes.Stride(seg) do
         local x, y = f(seg.pts[i], seg.pts[i + 1])
         minX, maxX = math.min(minX or x, x), math.max(maxX or x, x)
         minY, maxY = math.min(minY or y, y), math.max(maxY or y, y)
@@ -288,6 +288,22 @@ end
 local card
 local view = {} -- mapID, zoom, cx, cy (center in 0..1 of the map)
 
+-- Legend in the bottom-right: only the speed colors this route uses
+local function UpdateLegend()
+  local y = 6
+  for i = #ns.Routes.BANDS, 1, -1 do
+    local row = card.legend[i]
+    if card.bandsShown and card.bandsShown[i] then
+      row:ClearAllPoints()
+      row:SetPoint("BOTTOMRIGHT", card.over, "BOTTOMRIGHT", -8, y)
+      row:Show()
+      y = y + 14
+    else
+      row:Hide()
+    end
+  end
+end
+
 -- Draw every route part that toPixel can place. toPixel(seg) returns a
 -- function (a, b) -> x, y in pixels, or nil if that part can't be shown.
 -- Parts in a row are joined by dashed "jump" lines. Returns the skipped parts.
@@ -301,19 +317,27 @@ local function DrawRoute(route, toPixel)
   local layer = card.lineLayer
   local firstPt, lastPt, prevEnd
   local skipped = {}
+  local R = ns.Routes
+  card.bandsShown = {}
   for si, seg in ipairs(route.segs) do
-    local f = #seg.pts >= 2 and toPixel(seg)
+    local stride = R.Stride(seg)
+    local f = #seg.pts >= stride and toPixel(seg)
     if f then
       local pts = seg.pts
       local px, py = f(pts[1], pts[2])
       if si == 1 then firstPt = { px, py } end
       if prevEnd then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
-      for i = 3, #pts, 2 do
+      local lastStart = #pts - stride + 1
+      for i = 1 + stride, #pts, stride do
         local x, y = f(pts[i], pts[i + 1])
-        -- skip points too close together on screen (keeps long routes fast)
-        if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= #pts - 1 then
+        local band = R.PointBand(seg, i)
+        local nextBand = i < lastStart and R.PointBand(seg, i + stride) or band
+        -- skip points too close together on screen (keeps long routes fast),
+        -- but never where the color changes
+        if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= lastStart or nextBand ~= band then
           Segment(card.outline, layer, px, py, x, y, 7, BLACK, 0.7)
-          Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
+          Segment(card.route, layer, px, py, x, y, 3.5, R.BandColor(band), 1)
+          card.bandsShown[band] = true
           px, py = x, y
         end
       end
@@ -326,6 +350,7 @@ local function DrawRoute(route, toPixel)
   end
   if firstPt then ShowMarker(card.startMark, layer, firstPt[1], firstPt[2]) end
   if lastPt then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
+  UpdateLegend()
   return skipped
 end
 
@@ -615,6 +640,22 @@ local function BuildCard()
   card.hidden = over:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   card.hidden:SetPoint("BOTTOMLEFT", card.hint, "TOPLEFT", 0, 3)
   card.hidden:SetTextColor(1, 0.82, 0)
+  card.legend = {}
+  for i, band in ipairs(ns.Routes.BANDS) do
+    local row = CreateFrame("Frame", nil, over)
+    row:SetSize(140, 12)
+    local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("RIGHT")
+    label:SetText(band.label)
+    local swatch = row:CreateTexture(nil, "OVERLAY")
+    swatch:SetTexture("Interface\\Buttons\\WHITE8X8")
+    swatch:SetSize(16, 4)
+    swatch:SetPoint("RIGHT", label, "LEFT", -5, 0)
+    swatch:SetVertexColor(unpack(band.color))
+    row.label = label
+    row:Hide()
+    card.legend[i] = row
+  end
   card.empty = over:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   card.empty:SetPoint("CENTER")
   card.empty:SetWidth(CW - 60)
@@ -716,16 +757,7 @@ local function DrawShapeOnly(route)
     if not main or #seg.pts > #main.pts then main = seg end
   end
   local function Same(seg) return seg.inst == main.inst end
-  local minA, maxA, minB, maxB
-  for _, seg in ipairs(route.segs) do
-    if Same(seg) then
-      for i = 1, #seg.pts, 2 do
-        local a, b = seg.pts[i], seg.pts[i + 1]
-        minA, maxA = math.min(minA or a, a), math.max(maxA or a, a)
-        minB, maxB = math.min(minB or b, b), math.max(maxB or b, b)
-      end
-    end
-  end
+  local minA, maxA, minB, maxB = ns.Routes.Bounds(route, Same)
   local spanA, spanB = math.max(maxA - minA, 1), math.max(maxB - minB, 1)
   local scale = math.min((CW - PAD * 2) / spanB, (CH - PAD * 2) / spanA)
   local offX, offY = (CW - spanB * scale) / 2, (CH - spanA * scale) / 2
