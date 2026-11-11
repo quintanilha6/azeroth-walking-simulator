@@ -365,8 +365,38 @@ local function PlaceContent()
 end
 
 -- Draw tiles, route parts and jumps for the current map and zoom
+local EMPTY_ROUTE = { segs = {} }
+
+-- The zone you're standing in (if its map can be drawn)
+local function PlayerZone()
+  if not (C_Map and C_Map.GetBestMapForUnit) then return nil end
+  local ok, id = pcall(C_Map.GetBestMapForUnit, "player")
+  if ok and Plain(id) and MapArt(id) then return id end
+end
+
+-- Where you are on map M (0..1), or nil (e.g. hidden in dungeons)
+local function PlayerOnMap(M)
+  local zone = PlayerZone()
+  if not zone or not C_Map.GetPlayerMapPosition then return nil end
+  local ok, pos = pcall(C_Map.GetPlayerMapPosition, zone, "player")
+  if not ok or type(pos) ~= "table" or not Plain(pos.x) or not Plain(pos.y) then return nil end
+  if zone == M then return pos.x, pos.y end
+  local x1, x2, y1, y2 = RectOn(zone, M)
+  if not x1 then return nil end
+  return x1 + pos.x * (x2 - x1), y1 + pos.y * (y2 - y1)
+end
+
+-- Yellow "you are here" marker
+local function UpdateMe()
+  if not card.interactive or not view.mapID then HideMarker(card.meMark) return end
+  local x, y = PlayerOnMap(view.mapID)
+  if not x then HideMarker(card.meMark) return end
+  local _, _, mapW, mapH = Layout()
+  ShowMarker(card.meMark, card.lineLayer, x * mapW, y * mapH)
+end
+
 local function Render()
-  local route = card.activity.route
+  local route = card.activity.route or EMPTY_ROUTE
   local art, scale, mapW, mapH = Layout()
   PlaceContent()
 
@@ -426,11 +456,12 @@ local function Render()
     ("%d part%s of this walk %s on another map. Right-click to zoom out."):format(
       others, others == 1 and "" or "s", others == 1 and "is" or "are") or "")
   card.upBtn:SetEnabled(canGoUp)
+  UpdateMe()
 end
 
 -- Zoom so everything drawable on this map fits
 local function FitRoute()
-  local minX, maxX, minY, maxY = RouteOnMap(card.activity.route, view.mapID)
+  local minX, maxX, minY, maxY = RouteOnMap(card.activity.route or EMPTY_ROUTE, view.mapID)
   local art = MapArt(view.mapID)
   if not minX then view.zoom, view.cx, view.cy = 1, 0.5, 0.5 return end
   local base = math.max(CW / art.w, CH / art.h)
@@ -562,6 +593,7 @@ local function BuildCard()
   card.route = NewPool(lineLayer, "OVERLAY", 1)
   card.startMark = Marker(lineLayer, GREEN, 10)
   card.endMark = Marker(lineLayer, WHITE, 10)
+  card.meMark = Marker(lineLayer, { 1, 0.82, 0 }, 9)
 
   -- Overlay: map name, hint, controls
   local over = CreateFrame("Frame", nil, canvas)
@@ -602,7 +634,9 @@ local function BuildCard()
   card.plusBtn:SetPoint("RIGHT", card.fitBtn, "LEFT", -2, 0)
   card.minusBtn = Ctl("-", 24, function() ZoomBy(1 / 1.5) end)
   card.minusBtn:SetPoint("RIGHT", card.plusBtn, "LEFT", -2, 0)
-  card.controls = { card.worldBtn, card.upBtn, card.fitBtn, card.plusBtn, card.minusBtn }
+  card.zoneBtn = Ctl("My zone", 66, function() V.GoToMyZone() end)
+  card.zoneBtn:SetPoint("RIGHT", card.minusBtn, "LEFT", -2, 0)
+  card.controls = { card.worldBtn, card.upBtn, card.fitBtn, card.plusBtn, card.minusBtn, card.zoneBtn }
 
   -- Mouse: wheel zoom, drag to move, click to zoom in, right-click to zoom out
   canvas:EnableMouse(true)
@@ -700,12 +734,13 @@ end
 local liveAcc, routeAcc = 0, 0
 local function LiveUpdate(_, elapsed)
   local s = card.activity
-  if not s or s ~= ns.cdb.current then return end
   liveAcc, routeAcc = liveAcc + elapsed, routeAcc + elapsed
   if liveAcc >= 1 then
     liveAcc = 0
-    FillStats(s)
+    UpdateMe() -- your position marker follows you
+    if s and s == ns.cdb.current then FillStats(s) end
   end
+  if not s or s ~= ns.cdb.current then return end
   if routeAcc >= 5 and not card.canvas.drag and ns.Routes.Has(s) then
     routeAcc = 0
     local n = s.route.n or 0
@@ -735,34 +770,49 @@ function V.Open(s)
   FillStats(s)
 
   PoolReset(card.outline); PoolReset(card.route); PoolReset(card.jumps)
-  HideMarker(card.startMark); HideMarker(card.endMark)
+  HideMarker(card.startMark); HideMarker(card.endMark); HideMarker(card.meMark)
   card.hidden:SetText("")
   card.interactive = false
 
-  if not ns.Routes.Has(s) then
+  local hasRoute = ns.Routes.Has(s)
+  local zone = PlayerZone()
+  -- Open on the zone you're in; without one (e.g. in a dungeon) fit the route
+  local M = zone or (hasRoute and DefaultMap(s.route))
+  local function Controls(show)
+    for _, b in ipairs(card.controls) do b:SetShown(show) end
+    card.hint:SetShown(show)
+  end
+
+  if M then
+    card.interactive = true
+    Controls(true)
+    card.empty:SetText("No route recorded for this activity.\nRoutes are recorded outdoors only.")
+    card.empty:SetShown(not hasRoute)
+    if zone then GoToMap(zone, PlayerOnMap(zone)) else GoToMap(M, nil, nil, true) end
+  elseif hasRoute then
+    card.empty:Hide()
+    Controls(false)
+    DrawShapeOnly(s.route)
+  else
     for _, t in ipairs(card.tiles) do t:Hide() end
-  for _, t in ipairs(card.explored) do t:Hide() end
+    for _, t in ipairs(card.explored) do t:Hide() end
     card.mapName:SetText("")
     card.empty:SetText("No route for this activity.\nRoutes are recorded outdoors only: the game hides your " ..
       "position in dungeons. Older activities keep only their numbers.")
     card.empty:Show()
-    for _, b in ipairs(card.controls) do b:Hide() end
-    card.hint:Hide()
-  else
-    card.empty:Hide()
-    local M = DefaultMap(s.route)
-    if M then
-      card.interactive = true
-      for _, b in ipairs(card.controls) do b:Show() end
-      card.hint:Show()
-      GoToMap(M, nil, nil, true)
-    else
-      for _, b in ipairs(card.controls) do b:Hide() end
-      card.hint:Hide()
-      DrawShapeOnly(s.route)
-    end
+    Controls(false)
   end
   card:Show()
+end
+
+-- "My zone" button: back to the zone you're in, centered on you
+function V.GoToMyZone()
+  if not card or not card.interactive then return end
+  local zone = PlayerZone()
+  if not zone then
+    return ns.Print("Your current zone's map isn't available here (for example inside dungeons).")
+  end
+  GoToMap(zone, PlayerOnMap(zone))
 end
 
 -- Screenshot of the card (buttons and hints hidden for a clean picture)

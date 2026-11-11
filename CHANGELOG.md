@@ -6,6 +6,7 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 
 ### Added
 - **Routes.** Your walking path is recorded outdoors and saved with each activity, like Strava.
+- The route card **opens on the zone you're in**, centered on you, with a yellow marker for where you're standing. The **My zone** button brings you back there; **Fit route** zooms to your whole walk.
 - **Route card with its own map**, working like the game map: scroll to zoom, drag to move, click a zone to zoom into it, right-click to zoom out (zone → continent → world). Buttons for −, +, "Fit route", "Up" and "World".
 - The card's map shows the areas you've explored, just like your game map. Unexplored areas stay blank, as they do there.
 - Your route is an orange line with a green start and white finish, and **every part of the walk is drawn on whatever map you look at**. Use "World" to see walks on several continents at once.
