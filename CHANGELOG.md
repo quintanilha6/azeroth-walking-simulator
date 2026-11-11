@@ -6,8 +6,8 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 
 ### Added
 - **Routes.** Your walking path is recorded outdoors and saved with each activity, like Strava.
-- **Route card:** a map-style picture of your route (orange line, green start, white finish) with distance, steps, time and pace. Open it with the map icon on an activity in the Activities tab, or `/aws route` for your current or last walk.
-- **Show on world map** draws the route on the real world map. It's removed when you close the map.
+- **Route card:** your route drawn over the map of the zone you walked in (orange line, green start, white finish), with distance, steps, time and pace. It zooms to fit your walk, and uses the region map if you crossed several zones. Open it with the map icon on an activity in the Activities tab, or `/aws route` for your current or last walk.
+- The regular world map is left untouched, so the addon works alongside any map addon.
 - **Screenshot** button on the route card saves a clean picture to your Screenshots folder.
 - Routes are simplified when an activity is finished, and kept for the newest 30 activities, so saved data stays small.
 
