@@ -277,11 +277,11 @@ local anchorX, anchorY, anchorInst, pending = nil, nil, nil, 0
 local function SetAnchor(x, y, inst) anchorX, anchorY, anchorInst, pending = x, y, inst, 0 end
 
 -- Yards to count this tick, plus "blocked" when pushing without moving
-local function MeasuredYards(speed, dt)
+local function MeasuredYards(speed, dt, realDt)
   local x, y, inst = ReadPosition()
   if not x then SetAnchor(nil) return speed * dt end                 -- position hidden: trust speed
   if not anchorX or anchorInst ~= inst then SetAnchor(x, y, inst) return 0 end -- first reading / new zone
-  pending = pending + speed * dt
+  pending = pending + speed * realDt -- real time, so a freeze is not mistaken for a boat
   local moved = math.sqrt((x - anchorX) ^ 2 + (y - anchorY) ^ 2)
   ns.state.dbgMoved, ns.state.dbgPending = moved, pending
   if moved >= pending * 0.25 then
@@ -404,7 +404,7 @@ function ns.Tick(dt)
   local yards = 0
   if not reason and speed > 0 then
     local why
-    yards, why = MeasuredYards(speed, dt)
+    yards, why = MeasuredYards(speed, dt, ns.state.realDt or dt)
     if why == "carried" then
       ns.state.carriedUntil = GetTime() + 3
     elseif why then
@@ -542,6 +542,9 @@ local function OnUpdate(_, elapsed)
   if acc < 0.1 then return end
   local dt = acc
   acc = 0
+  -- the real time passed, for comparing with how far you really moved after
+  -- a hitch (so a freeze isn't mistaken for a boat ride)
+  ns.state.realDt = math.min(dt, 10)
   if dt > 1 then dt = 1 end -- loading screens / hitches
   ns.Tick(dt)
 end

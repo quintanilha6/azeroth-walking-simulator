@@ -12,7 +12,12 @@ local F = ns.F
 
 local PREFIX = "AWS"
 local VERSION = "2"
-local CHANNEL_NAME = "AWSWalkers" -- hidden channel for the "Everyone" leaderboard
+-- Hidden channel for the "Everyone" leaderboard. Anyone can join a custom
+-- channel, and its owner can lock it with a password or ban people, so if a
+-- name can't be joined the addon moves on to the next one.
+local CHANNEL_NAMES = { "AWSWalkers", "AWSWalkers2", "AWSWalkers3", "AWSWalkers4", "AWSWalkers5", "AWSWalkers6" }
+local channelIdx = 1
+local function ChannelName() return CHANNEL_NAMES[channelIdx] end
 local PEOPLE_CAP = 1000
 local SEND_INTERVAL = 1.0      -- seconds between outgoing messages (server throttle)
 local BROADCAST_INTERVAL = 5   -- friends/guild: check for changed stats this often (only sends if changed)
@@ -81,7 +86,7 @@ local function RawSend(msg, dest)
   elseif dest.kind == "GUILD" then
     if IsInGuild() then C_ChatInfo.SendAddonMessage(PREFIX, msg, "GUILD") end
   elseif dest.kind == "CHANNEL" then
-    local id = GetChannelName(CHANNEL_NAME)
+    local id = GetChannelName(ChannelName())
     if id and id > 0 then C_ChatInfo.SendAddonMessage(PREFIX, msg, "CHANNEL", id) end
   elseif dest.target then
     if S.NoteWhisper then S.NoteWhisper(dest.target) end
@@ -260,16 +265,33 @@ end
 -- Friends + guild: the people overtake alerts and "Top of the Pack" care about
 local function InCircle(e) return S.IsGuild(e) or S.IsFriend(e) end
 
+local function InChannel() return (GetChannelName(ChannelName()) or 0) > 0 end
+
 local function JoinChannel()
   if not ns.settings.globalBoard or not JoinTemporaryChannel then return end
-  if (GetChannelName(CHANNEL_NAME) or 0) == 0 then JoinTemporaryChannel(CHANNEL_NAME) end
+  local name = ChannelName()
+  if not InChannel() then JoinTemporaryChannel(name) end
   -- keep it out of the chat windows
   if ChatFrame_RemoveChannel then
     for i = 1, (NUM_CHAT_WINDOWS or 10) do
       local cf = _G["ChatFrame" .. i]
-      if cf then ChatFrame_RemoveChannel(cf, CHANNEL_NAME) end
+      if cf then ChatFrame_RemoveChannel(cf, name) end
     end
   end
+  -- Locked with a password, or banned: we're still not in it after a few
+  -- seconds, so try the next name
+  C_Timer.After(8, function()
+    if ns.settings.globalBoard and not InChannel() and channelIdx < #CHANNEL_NAMES then
+      channelIdx = channelIdx + 1
+      S.NetLog("Everyone channel %s can't be joined, trying %s", name, ChannelName())
+      JoinChannel()
+    end
+  end)
+end
+
+-- Kicked or banned later on: rejoin (or move on) once a minute
+local function WatchChannel()
+  if ns.settings.globalBoard and JoinTemporaryChannel and not InChannel() then JoinChannel() end
 end
 
 function S.SetGlobalBoard(on)
@@ -278,7 +300,7 @@ function S.SetGlobalBoard(on)
     JoinChannel()
     C_Timer.After(3, function() S.BroadcastStats(true) end)
   elseif LeaveChannelByName then
-    LeaveChannelByName(CHANNEL_NAME)
+    LeaveChannelByName(ChannelName())
   end
 end
 
@@ -520,19 +542,32 @@ local function FriendWeek(e, weekKey)
   return 0
 end
 
+-- Passing someone only counts with a clear gap, and each friend can trigger
+-- an alert at most once every ALERT_COOLDOWN seconds (no ping-pong when you
+-- walk side by side)
+local OVERTAKE_MARGIN = 100
+local ALERT_COOLDOWN = 15 * 60
+
 local function CheckOvertakes(only)
   local c = ns.cdb
+  local people = ns.db.social.people
+  local single = only and people[only]
+  if only and not (single and S.IsOnline(single) and InCircle(single)) then return end -- strangers: nothing to do
   local weekKey = ns.Challenges.WeekPeriod().key
   if not c.rivals or c.rivals.week ~= weekKey then c.rivals = { week = weekKey, rel = {} } end
+  c.rivals.alerted = c.rivals.alerted or {}
   local mine = ns.Challenges.WeekSteps()
-  for guid, e in pairs(ns.db.social.people) do
-    if (not only or only == guid) and S.IsOnline(e) and InCircle(e) then
+  local list = only and { [only] = single } or people
+  for guid, e in pairs(list) do
+    if S.IsOnline(e) and InCircle(e) then
       local theirs = FriendWeek(e, weekKey)
-      if mine >= 1 and theirs >= 1 and mine ~= theirs then
+      local prev = c.rivals.rel[guid]
+      if mine >= 1 and theirs >= 1 and (not prev or math.abs(mine - theirs) >= OVERTAKE_MARGIN) then
         local rel = mine > theirs and "ahead" or "behind"
-        local prev = c.rivals.rel[guid]
         c.rivals.rel[guid] = rel
-        if prev and prev ~= rel then
+        local recent = time() - (c.rivals.alerted[guid] or 0) < ALERT_COOLDOWN
+        if prev and prev ~= rel and not recent then
+          c.rivals.alerted[guid] = time()
           local name = S.ColoredName(guid)
           local text
           if rel == "ahead" then
@@ -622,13 +657,23 @@ local function Plausible(p)
     and N(p[17]) <= 7 * DAY_MAX and N(p[24]) <= 80 and today <= week + 1 and week <= all + 1
 end
 
+-- Fastest anyone can add steps (travel form/ghost wolf is about 5 a second),
+-- plus room for the live updates and clock differences
+local MAX_RATE, RATE_SLACK = 6, 3000
+
 local function HandleStats(guid, p)
   local e = ns.db.social.people[guid]
-  if not Plausible(p) then
+  local all, now = N(p[12]), time()
+  -- all-time steps can't grow faster than anyone can walk since we last saw them
+  -- (the last accepted total stays as the reference, so a jump stays flagged
+  -- until enough time has passed to have walked it)
+  local tooFast = e.allAt and e.all and all - e.all > (now - e.allAt) * MAX_RATE + RATE_SLACK
+  if tooFast or not Plausible(p) then
     e.flagged = true -- impossible numbers: kept off the leaderboards
     return
   end
   e.flagged = nil
+  e.allAt = now
   local weekKey = Clean(p[22], 12)
   if e.weekKey and e.weekKey ~= weekKey then
     e.prevWeekKey, e.prevWeek = e.weekKey, e.week -- keep last week for the recap
@@ -947,6 +992,7 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     Recipients() -- fills the friend list cache
     Prune()
     C_Timer.After(6, JoinChannel)
+    C_Timer.NewTicker(60, WatchChannel)
     C_Timer.After(10, SayHello)
     C_Timer.NewTicker(BROADCAST_INTERVAL, function()
       S.BroadcastStats(false)

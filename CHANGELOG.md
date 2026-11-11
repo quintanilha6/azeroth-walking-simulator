@@ -12,6 +12,12 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
   - News with fake periods or ranks is ignored.
   - Text from other players is cleaned, so it can't show fake links or images in your Feed.
 - Friends' challenge completions are now cleaned up after two months instead of being saved forever.
+- **The Everyone leaderboard can't be shut down by locking its channel.** If someone sets a password on the hidden channel or bans you from it, the addon switches to a backup channel. It also rejoins if you get kicked.
+- **Overtake alerts no longer repeat** when you and a friend walk side by side. You need a clear lead (100+ steps), and each friend triggers at most one alert every 15 minutes.
+- **Leaderboards also check how fast someone's steps grow.** All-time steps can't grow faster than anyone can walk, so edited saved data is kept off the leaderboards until enough time has passed.
+- A short freeze of the game while you walk is no longer mistaken for a boat ride.
+- Deleting an activity always removes the one you clicked, even if a walk finishes while the confirmation is open.
+- Quick Share no longer breaks accented letters when it has to shorten a long message.
 
 ### Added
 - **Auto-run on routes:** auto-run and /follow are now drawn along the path you really took, as a cyan dashed line. They still never count as steps.
@@ -21,6 +27,7 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 - **The leaderboard's right-click menu shows one party option:** "Ask to join their party" if the player is already in a group, otherwise "Invite to party". Nothing is shown if they're in your group already. Their group status comes from their addon, so players on older versions always show "Invite to party".
 - On the Everyone channel, only about 1 in 5 players answer when someone logs in. Everyone's stats still reach newcomers within a few minutes, and the addon stays fast as more people install it.
 - The Social tab no longer recalculates your own totals 4 times a second.
+- Stats from strangers on the Everyone channel no longer make the addon add up your own week each time.
 
 ## [2.4.3] - 2026-11-11
 

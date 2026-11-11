@@ -30,6 +30,19 @@ function Q.ActivityText(a)
     RankName())
 end
 
+-- Shorten to at most maxBytes without cutting a letter in half (accented
+-- letters take 2-3 bytes in UTF-8, and a broken one makes chat reject the line)
+function Q.Cut(s, maxBytes)
+  if #s <= maxBytes then return s end
+  local i = maxBytes + 1
+  while i > 1 do
+    local b = s:byte(i)
+    if b < 0x80 or b >= 0xC0 then break end -- start of a letter
+    i = i - 1
+  end
+  return s:sub(1, i - 1)
+end
+
 local CHANNELS = {
   { "SAY", "Say", function() return true end },
   { "PARTY", "Party", function() return IsInGroup() end },
@@ -96,7 +109,7 @@ end)
 function Q.Open(anchor, text)
   if menu:IsShown() and menu.anchor == anchor then menu:Hide() return end
   title:SetText(L["QUICK SHARE"])
-  menu.anchor, menu.text = anchor, (text or Q.DefaultText()):sub(1, 255)
+  menu.anchor, menu.text = anchor, Q.Cut(text or Q.DefaultText(), 255)
   preview:SetText((menu.text:gsub("^%[Azeroth Walking Simulator%] ", "")))
   local y = -(20 + preview:GetStringHeight() + 6)
   for _, b in ipairs(buttons) do

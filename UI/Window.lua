@@ -162,7 +162,7 @@ local ROW_W, ROW_H = 570, 20
 StaticPopupDialogs["AWS_DELETE_SESSION"] = {
   text = "Delete this activity from your history?\n(All-time totals are not changed.)",
   button1 = YES, button2 = NO,
-  OnAccept = function(_, index) ns.DeleteSession(index) end,
+  OnAccept = function(_, activity) ns.DeleteSession(activity) end,
   timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
 
@@ -221,7 +221,7 @@ local function BuildActivities(page)
     r.del:SetScript("OnClick", function()
       StaticPopupDialogs["AWS_DELETE_SESSION"].text =
         L["Delete this activity from your history?\n(All-time totals are not changed.)"]
-      StaticPopup_Show("AWS_DELETE_SESSION", nil, nil, r.index)
+      StaticPopup_Show("AWS_DELETE_SESSION", nil, nil, ns.cdb.history[r.index]) -- the activity itself, not its place
     end)
     -- Map button: open the route card (only shown when the activity has a route)
     r.route = CreateFrame("Button", nil, r)

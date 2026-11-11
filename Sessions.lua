@@ -65,8 +65,16 @@ function ns.StopSession(endTime, quiet)
   ns.RefreshUI()
 end
 
-function ns.DeleteSession(index)
-  table.remove(ns.cdb.history, index)
+-- activity: the activity table (or its index in history)
+function ns.DeleteSession(activity)
+  local history = ns.cdb.history
+  if type(activity) == "number" then activity = history[activity] end
+  for i, a in ipairs(history) do
+    if a == activity then
+      table.remove(history, i)
+      break
+    end
+  end
   ns.RefreshUI()
 end
 
