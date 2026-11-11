@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 -- "Quick Share": a small menu to post your progress straight to Say, Party,
@@ -14,18 +15,18 @@ local function RankName() return ns.Achievements.RankName(ns.Achievements.MyRank
 function Q.DefaultText()
   local s = ns.cdb.current
   if s and s.steps >= 1 then
-    return ("%s Out walking: %s steps, %s in %s. Rank: %s"):format(TAG, F.Number(s.steps), F.Distance(s.distance),
+    return (L["%s Out walking: %s steps, %s in %s. Rank: %s"]):format(TAG, F.Number(s.steps), F.Distance(s.distance),
       F.Time(s.moving), RankName())
   end
   if ns.cdb.history[1] then return Q.ActivityText(ns.cdb.history[1]) end
   local day = ns.GetDay(date("%Y-%m-%d"))
-  return ("%s Today: %s steps, %s. Rank: %s"):format(TAG, F.Number(day.s), F.Distance(day.d), RankName())
+  return (L["%s Today: %s steps, %s. Rank: %s"]):format(TAG, F.Number(day.s), F.Distance(day.d), RankName())
 end
 
 function Q.ActivityText(a)
   local zone = a.zones and a.zones[1]
-  return ("%s Just walked %s steps, %s in %s (pace %s)%s. Rank: %s"):format(TAG, F.Number(a.steps),
-    F.Distance(a.distance), F.Time(a.moving), F.Pace(a.moving, a.distance), zone and (" around " .. zone) or "",
+  return (L["%s Just walked %s steps, %s in %s (pace %s)%s. Rank: %s"]):format(TAG, F.Number(a.steps),
+    F.Distance(a.distance), F.Time(a.moving), F.Pace(a.moving, a.distance), zone and (L[" around "] .. zone) or "",
     RankName())
 end
 
@@ -57,7 +58,6 @@ tinsert(UISpecialFrames, "AWSQuickShareMenu") -- Escape closes it
 
 local title = menu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 title:SetPoint("TOPLEFT", 10, -9)
-title:SetText("QUICK SHARE")
 title:SetTextColor(0.99, 0.30, 0.01)
 
 local preview = menu:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -95,13 +95,14 @@ end)
 -- anchor: the button that opened it. text: optional (defaults to Q.DefaultText)
 function Q.Open(anchor, text)
   if menu:IsShown() and menu.anchor == anchor then menu:Hide() return end
+  title:SetText(L["QUICK SHARE"])
   menu.anchor, menu.text = anchor, (text or Q.DefaultText()):sub(1, 255)
   preview:SetText((menu.text:gsub("^%[Azeroth Walking Simulator%] ", "")))
   local y = -(20 + preview:GetStringHeight() + 6)
   for _, b in ipairs(buttons) do
     local ok = b.ch[3]()
     b:SetEnabled(ok)
-    b.text:SetText(ok and b.ch[2] or ("|cff666666" .. b.ch[2] .. "|r"))
+    b.text:SetText(ok and L[b.ch[2]] or ("|cff666666" .. L[b.ch[2]] .. "|r"))
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", 10, y)
     y = y - 18

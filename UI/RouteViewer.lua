@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 -- Strava-style route card with its own interactive map (the game's world map
@@ -478,8 +479,8 @@ local function Render()
   local others = 0
   for _, seg in ipairs(skipped) do if seg.map then others = others + 1 end end
   card.hidden:SetText((others > 0 and canGoUp) and
-    ("%d part%s of this walk %s on another map. Right-click to zoom out."):format(
-      others, others == 1 and "" or "s", others == 1 and "is" or "are") or "")
+    (others == 1 and L["1 part of this walk is on another map. Right-click to zoom out."] or
+      (L["%d parts of this walk are on another map. Right-click to zoom out."]):format(others)) or "")
   card.upBtn:SetEnabled(canGoUp)
   UpdateMe()
 end
@@ -635,7 +636,7 @@ local function BuildCard()
   card.mapName:SetPoint("TOPLEFT", 8, -4)
   card.hint = over:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   card.hint:SetPoint("BOTTOMLEFT", 8, 6)
-  card.hint:SetText("Scroll: zoom   Drag: move   Click: zoom into zone   Right-click: zoom out")
+  card.hint:SetText(L["Scroll: zoom   Drag: move   Click: zoom into zone   Right-click: zoom out"])
   card.hint:SetTextColor(0.85, 0.85, 0.85)
   card.hidden = over:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   card.hidden:SetPoint("BOTTOMLEFT", card.hint, "TOPLEFT", 0, 3)
@@ -646,7 +647,7 @@ local function BuildCard()
     row:SetSize(140, 12)
     local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("RIGHT")
-    label:SetText(band.label)
+    label:SetText(L[band.label])
     local swatch = row:CreateTexture(nil, "OVERLAY")
     swatch:SetTexture("Interface\\Buttons\\WHITE8X8")
     swatch:SetSize(16, 4)
@@ -665,11 +666,11 @@ local function BuildCard()
     b:SetHeight(18)
     return b
   end
-  card.worldBtn = Ctl("World", 56, WorldMap)
+  card.worldBtn = Ctl(L["World"], 56, WorldMap)
   card.worldBtn:SetPoint("TOPRIGHT", -4, -2)
-  card.upBtn = Ctl("Up", 40, ZoomOutToParent)
+  card.upBtn = Ctl(L["Up"], 40, ZoomOutToParent)
   card.upBtn:SetPoint("RIGHT", card.worldBtn, "LEFT", -2, 0)
-  card.fitBtn = Ctl("Fit route", 70, function() FitRoute() Render() end)
+  card.fitBtn = Ctl(L["Fit route"], 70, function() FitRoute() Render() end)
   card.fitBtn:SetPoint("RIGHT", card.upBtn, "LEFT", -2, 0)
   card.plusBtn = Ctl("+", 24, function() ZoomBy(1.5) end)
   card.plusBtn:SetPoint("RIGHT", card.fitBtn, "LEFT", -2, 0)
@@ -689,7 +690,7 @@ local function BuildCard()
   zoneBtn:SetScript("OnClick", function() V.GoToMyZone() end)
   zoneBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:AddLine("Go to my position")
+    GameTooltip:AddLine(L["Go to my position"])
     GameTooltip:Show()
   end)
   zoneBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -730,14 +731,14 @@ local function BuildCard()
     if d and not d.moved then ZoomIntoChildAt(d.x, d.y) end
   end)
 
-  card.dist = Stat(card, 20, "Distance")
-  card.steps = Stat(card, 180, "Steps")
-  card.time = Stat(card, 340, "Moving time")
-  card.pace = Stat(card, 500, "Avg pace")
+  card.dist = Stat(card, 20, L["Distance"])
+  card.steps = Stat(card, 180, L["Steps"])
+  card.time = Stat(card, 340, L["Moving time"])
+  card.pace = Stat(card, 500, L["Avg pace"])
 
-  card.shotBtn = ns.SmallButton(card, "Screenshot", 120, function() V.Screenshot() end)
+  card.shotBtn = ns.SmallButton(card, L["Screenshot"], 120, function() V.Screenshot() end)
   card.shotBtn:SetPoint("BOTTOMLEFT", 20, 14)
-  card.shareBtn = ns.SmallButton(card, "Quick Share", 120, function()
+  card.shareBtn = ns.SmallButton(card, L["Quick Share"], 120, function()
     ns.QuickShare.Open(card.shareBtn, ns.QuickShare.ActivityText(card.activity))
   end)
   card.shareBtn:SetPoint("LEFT", card.shotBtn, "RIGHT", 8, 0)
@@ -764,12 +765,12 @@ local function DrawShapeOnly(route)
   local function toXY(a, b) return offX + (maxB - b) * scale, offY + (maxA - a) * scale end
 
   DrawRoute(route, function(seg) return Same(seg) and toXY or nil end)
-  card.mapName:SetText("Route shape (map not available)")
+  card.mapName:SetText(L["Route shape (map not available)"])
 end
 
 local function FillStats(s)
   local live = s == ns.cdb.current
-  card.title:SetText((card.owner or UnitName("player")) .. (live and "  -  walking now" or ""))
+  card.title:SetText((card.owner or UnitName("player")) .. (live and L["  -  walking now"] or ""))
   local zones = s.zones and #s.zones > 0 and table.concat(s.zones, ", ") or "Azeroth"
   card.sub:SetText(F.Date(s.start or s.id) .. "   " .. zones)
   card.dist:SetText(F.Distance(s.distance))
@@ -809,7 +810,7 @@ end
 -- owner: a friend's display name (nil = your own activity).
 -- emptyText: message shown on the map when there's no route (yet).
 function V.Open(s, owner, emptyText)
-  if not s then return ns.Print("No activity to show yet.") end
+  if not s then return ns.Print(L["No activity to show yet."]) end
   if not card then
     BuildCard()
     card:SetScript("OnUpdate", LiveUpdate)
@@ -838,7 +839,7 @@ function V.Open(s, owner, emptyText)
   if M then
     card.interactive = true
     Controls(true)
-    card.empty:SetText(emptyText or "No route recorded for this activity.\nRoutes are recorded outdoors only.")
+    card.empty:SetText(emptyText or L["No route recorded for this activity.\nRoutes are recorded outdoors only."])
     card.empty:SetShown(not hasRoute)
     if zone then GoToMap(zone, PlayerOnMap(zone)) else GoToMap(M, nil, nil, true) end
   elseif hasRoute then
@@ -849,8 +850,7 @@ function V.Open(s, owner, emptyText)
     for _, t in ipairs(card.tiles) do t:Hide() end
     for _, t in ipairs(card.explored) do t:Hide() end
     card.mapName:SetText("")
-    card.empty:SetText(emptyText or ("No route for this activity.\nRoutes are recorded outdoors only: the game " ..
-      "hides your position in dungeons. Older activities keep only their numbers."))
+    card.empty:SetText(emptyText or L["No route for this activity.\nRoutes are recorded outdoors only: the game hides your position in dungeons. Older activities keep only their numbers."])
     card.empty:Show()
     Controls(false)
   end
@@ -860,20 +860,20 @@ end
 -- A friend's activity from the Feed: ask them for the route if we don't have it
 function V.OpenFriend(item, owner)
   if ns.Routes.Has(item) then return V.Open(item, owner) end
-  V.Open(item, owner, ("Loading route from %s..."):format(owner))
+  V.Open(item, owner, (L["Loading route from %s..."]):format(owner))
   ns.Social.RequestRoute(item,
     function(got, total)
       if card.activity == item and card:IsShown() then
-        card.empty:SetText(("Loading route from %s...  %d / %d"):format(owner, got, total))
+        card.empty:SetText((L["Loading route from %s...  %d / %d"]):format(owner, got, total))
       end
     end,
     function(route, reason)
       if card.activity ~= item or not card:IsShown() then return end
       if route then return V.Open(item, owner) end
       if reason == "offline" then
-        V.Open(item, owner, ("%s isn't online right now, so the route can't be loaded.\nTry again when they are."):format(owner))
+        V.Open(item, owner, (L["%s isn't online right now, so the route can't be loaded.\nTry again when they are."]):format(owner))
       else
-        V.Open(item, owner, ("%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"):format(owner))
+        V.Open(item, owner, (L["%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"]):format(owner))
       end
     end)
 end
@@ -883,7 +883,7 @@ function V.GoToMyZone()
   if not card or not card.interactive then return end
   local zone = PlayerZone()
   if not zone then
-    return ns.Print("Your current zone's map isn't available here (for example inside dungeons).")
+    return ns.Print(L["Your current zone's map isn't available here (for example inside dungeons)."])
   end
   GoToMap(zone, PlayerOnMap(zone))
 end
@@ -891,7 +891,7 @@ end
 -- Screenshot of the card (buttons and hints hidden for a clean picture)
 function V.Screenshot()
   if not card or not card:IsShown() then return end
-  if not Screenshot then return ns.Print("Screenshots aren't available on this client.") end
+  if not Screenshot then return ns.Print(L["Screenshots aren't available on this client."]) end
   local hide = { card.shotBtn, card.shareBtn, card.close, card.hint }
   for _, b in ipairs(card.controls) do hide[#hide + 1] = b end
   local wasShown = {}
@@ -901,6 +901,6 @@ function V.Screenshot()
     C_Timer.After(0.3, function()
       for i, f in ipairs(hide) do if wasShown[i] then f:Show() end end
     end)
-    ns.Print("Screenshot saved to your WoW Screenshots folder.")
+    ns.Print(L["Screenshot saved to your WoW Screenshots folder."])
   end)
 end

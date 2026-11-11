@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 -- Entry in the game's Options -> AddOns list, showing the same settings as
 -- the Settings tab of the main window.
@@ -17,7 +18,7 @@ function O.Create()
   title:SetText(TITLE)
   title:SetTextColor(unpack(ns.ORANGE))
 
-  local open = ns.SmallButton(panel, "Open main window", 160, function()
+  local open = ns.SmallButton(panel, L["Open main window"], 160, function()
     if SettingsPanel and SettingsPanel:IsShown() and HideUIPanel then HideUIPanel(SettingsPanel) end
     if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() and HideUIPanel then HideUIPanel(InterfaceOptionsFrame) end
     ns.ToggleWindow(1)
@@ -42,7 +43,7 @@ function O.Create()
 end
 
 function O.Open()
-  if InCombatLockdown() then return ns.Print("Options can't be opened in combat.") end
+  if InCombatLockdown() then return ns.Print(L["Options can't be opened in combat."]) end
   if not O.panel then O.Create() end
   if O.category and Settings and Settings.OpenToCategory then
     local id = O.category.GetID and O.category:GetID() or O.category.ID

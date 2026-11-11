@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 local TILE_W, TILE_H = 284, 48
@@ -56,10 +57,10 @@ function ns.BuildTrophiesPage(page)
 
   -- Walker ranks: all nine, with what each needs
   local RANK_ROW = 18
-  SectionHeader(0, "Walker ranks")
+  SectionHeader(0, L["Walker ranks"])
   local rankNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   rankNote:SetPoint("TOPLEFT", 0, -17)
-  rankNote:SetText("Earned from all-time steps on this character. Each rank up shows a banner and tells your friends.")
+  rankNote:SetText(L["Earned from all-time steps on this character. Each rank up shows a banner and tells your friends."])
   local rankRows = {}
   for i, r in ipairs(A.RANKS) do
     local row = CreateFrame("Frame", nil, content)
@@ -75,14 +76,14 @@ function ns.BuildTrophiesPage(page)
     row.name:SetText(("%d.  %s"):format(i, A.RankColored(i)))
     row.need = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.need:SetPoint("LEFT", 270, 0)
-    row.need:SetText(F.Number(r[1]) .. " steps")
+    row.need:SetText(F.Number(r[1]) .. L[" steps"])
     row.status = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.status:SetPoint("LEFT", 390, 0)
     rankRows[i] = row
   end
   local GRID_TOP = -34 - #A.RANKS * RANK_ROW - 14
 
-  SectionHeader(GRID_TOP, "Achievements")
+  SectionHeader(GRID_TOP, L["Achievements"])
   GRID_TOP = GRID_TOP - 20
 
   local tiles = {}
@@ -100,7 +101,7 @@ function ns.BuildTrophiesPage(page)
     t.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     t.name = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     t.name:SetPoint("TOPLEFT", 46, -4)
-    t.name:SetText(a.name)
+    t.name:SetText(L[a.name])
     t.line1 = t:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     t.line1:SetPoint("TOPLEFT", t.name, "BOTTOMLEFT", 0, -2)
     t.line1:SetWidth(TILE_W - 56)
@@ -111,8 +112,8 @@ function ns.BuildTrophiesPage(page)
     t:EnableMouse(true)
     t:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine(a.name, 1, 0.82, 0)
-      GameTooltip:AddLine(a.desc, 1, 1, 1, true)
+      GameTooltip:AddLine(L[a.name], 1, 0.82, 0)
+      GameTooltip:AddLine(L[a.desc], 1, 1, 1, true)
       GameTooltip:Show()
     end)
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -124,9 +125,9 @@ function ns.BuildTrophiesPage(page)
   local recHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   recHeader:SetPoint("TOPLEFT", 0, -gridH - 10)
   recHeader:SetTextColor(unpack(ns.ORANGE))
-  recHeader:SetText("Personal records")
-  local recLabels = { "Most steps in one activity", "Longest distance", "Longest moving time", "Best day",
-                      "Longest streak", "Zones walked in" }
+  recHeader:SetText(L["Personal records"])
+  local recLabels = { L["Most steps in one activity"], L["Longest distance"], L["Longest moving time"], L["Best day"],
+                      L["Longest streak"], L["Zones walked in"] }
   local recValues = {}
   for i, label in ipairs(recLabels) do
     local y = -gridH - 30 - (i - 1) * 20
@@ -147,23 +148,23 @@ function ns.BuildTrophiesPage(page)
     local c = ns.cdb
     local steps = c.total.steps
     local idx = A.MyRank()
-    kicker:SetText(("RANK %d OF %d"):format(idx, #A.RANKS))
+    kicker:SetText((L["RANK %d OF %d"]):format(idx, #A.RANKS))
     name:SetText(A.RankColored(idx))
     local nextRank = A.RANKS[idx + 1]
     if nextRank then
       local from = A.RANKS[idx][1]
       bar:SetValue((steps - from) / (nextRank[1] - from))
-      next:SetText(("%s / %s steps to %s"):format(F.Number(steps), F.Number(nextRank[1]), nextRank[2]))
+      next:SetText((L["%s / %s steps to %s"]):format(F.Number(steps), F.Number(nextRank[1]), L[nextRank[2]]))
     else
       bar:SetValue(1)
-      next:SetText("Max rank. Legendary walker!")
+      next:SetText(L["Max rank. Legendary walker!"])
     end
 
     for i, row in ipairs(rankRows) do
       if i == idx then
         row.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.18)
         row.mark:SetText(A.CHECK)
-        row.status:SetText("You are here")
+        row.status:SetText(L["You are here"])
       elseif i < idx then
         row.bg:SetVertexColor(1, 1, 1, 0.03)
         row.mark:SetText(A.CHECK)
@@ -176,8 +177,8 @@ function ns.BuildTrophiesPage(page)
     end
 
     local w, m, champ = ns.Challenges.Counts()
-    counts:SetText(("|cffffd100Achievements|r %d/%d     |cffffd100Weekly challenges|r %d     " ..
-      "|cffffd100Monthly|r %d     |cffffd100Weekly Champion|r x%d"):format(A.Count(), #A.LIST, w, m, champ))
+    counts:SetText((L["|cffffd100Achievements|r %d/%d     |cffffd100Weekly challenges|r %d     "] ..
+      L["|cffffd100Monthly|r %d     |cffffd100Weekly Champion|r x%d"]):format(A.Count(), #A.LIST, w, m, champ))
 
     for _, t in ipairs(tiles) do
       local earned = c.achievements[t.a.id]
@@ -186,12 +187,12 @@ function ns.BuildTrophiesPage(page)
       if earned then
         t.bg:SetVertexColor(1, 0.82, 0, 0.10)
         t.name:SetTextColor(1, 0.82, 0)
-        t.line1:SetText(t.a.desc)
-        t.line2:SetText("Earned " .. F.Day(earned))
+        t.line1:SetText(L[t.a.desc])
+        t.line2:SetText(L["Earned "] .. F.Day(earned))
       else
         t.bg:SetVertexColor(1, 1, 1, 0.03)
         t.name:SetTextColor(0.6, 0.6, 0.6)
-        t.line1:SetText(t.a.desc)
+        t.line1:SetText(L[t.a.desc])
         local value, goal = t.a.check(c)
         t.line2:SetText(A.ProgressText(t.a, value, goal))
       end
@@ -202,12 +203,12 @@ function ns.BuildTrophiesPage(page)
     recValues[2]:SetText(SessionText(r.distance, r.distance and F.Distance(r.distance.distance)))
     recValues[3]:SetText(SessionText(r.moving, r.moving and F.Time(r.moving.moving)))
     if r.dayKey and r.daySteps >= 1 then
-      recValues[4]:SetText(("%s steps   |cff888888%s|r"):format(F.Number(r.daySteps), r.dayKey))
+      recValues[4]:SetText((L["%s steps   |cff888888%s|r"]):format(F.Number(r.daySteps), r.dayKey))
     else
       recValues[4]:SetText("-")
     end
     local _, best = ns.Streaks()
-    recValues[5]:SetText(best .. " days")
+    recValues[5]:SetText(best .. L[" days"])
     local zones = 0
     for _ in pairs(c.zones) do zones = zones + 1 end
     recValues[6]:SetText(zones)

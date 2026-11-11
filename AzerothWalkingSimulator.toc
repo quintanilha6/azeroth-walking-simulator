@@ -13,6 +13,14 @@
 ## X-Website: https://github.com/quintanilha6/azeroth-walking-simulator
 ## X-Curse-Project-ID: 1794070
 
+Locales\Locale.lua
+Locales\ptPT.lua
+Locales\esES.lua
+Locales\frFR.lua
+Locales\deDE.lua
+Locales\itIT.lua
+Locales\fiFI.lua
+Locales\svSE.lua
 Format.lua
 Core.lua
 Sessions.lua

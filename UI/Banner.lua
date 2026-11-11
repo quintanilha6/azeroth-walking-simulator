@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 -- Big center banner for your own wins, small top toast for friends/overtakes.
 local B = {}
@@ -139,9 +140,9 @@ function B.Toast(o)
 end
 
 function B.Test()
-  B.Show({ kicker = "WEEKLY CHALLENGE COMPLETE", title = "Centurion", sub = "Gold  -  Walk 100,000 steps this week",
+  B.Show({ kicker = L["WEEKLY CHALLENGE COMPLETE"], title = L["Centurion"], sub = L["Gold  -  Walk 100,000 steps this week"],
     icon = ns.Challenges.TIERS.gold.icon, color = ns.Challenges.TIERS.gold.color })
-  B.Toast({ title = "Friend activity", text = "Bob completed the Silver challenge Road Warrior!",
+  B.Toast({ title = L["Friend activity"], text = L["Bob completed the Silver challenge Road Warrior!"],
     icon = ns.Challenges.TIERS.silver.icon })
-  if not ns.settings.banners then ns.Print("Banners are turned off in Settings.") end
+  if not ns.settings.banners then ns.Print(L["Banners are turned off in Settings."]) end
 end

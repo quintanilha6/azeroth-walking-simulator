@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 -- Weekly (Mon-Sun) and monthly challenges. Everyone gets the same picks for a
@@ -54,7 +55,7 @@ for key, pool in pairs(C.POOLS) do
   if pool.id then BY_ID[pool.id] = pool else for _, d in ipairs(pool) do BY_ID[d.id] = d end end
 end
 function C.ById(id) return BY_ID[id] end
-function C.TierName(ch) return C.TIERS[ch.tier].name end
+function C.TierName(ch) return L[C.TIERS[ch.tier].name] end
 
 ---------------------------------------------------------------------------
 -- Periods
@@ -141,15 +142,15 @@ function C.ProgressText(ch, value)
   if ch.metric == "dist" then
     return F.Distance(v) .. " / " .. F.Distance(ch.goal)
   elseif ch.metric == "activeDays" then
-    return ("%d / %d days"):format(v, ch.goal)
+    return (L["%d / %d days"]):format(v, ch.goal)
   elseif ch.metric == "zones" then
-    return ("%d / %d zones"):format(v, ch.goal)
+    return (L["%d / %d zones"]):format(v, ch.goal)
   elseif ch.metric == "acts5k" then
-    return ("%d / %d activities"):format(v, ch.goal)
+    return (L["%d / %d activities"]):format(v, ch.goal)
   elseif ch.metric == "bestAct" then
-    return ("best %s / %s steps"):format(F.Number(v), F.Number(ch.goal))
+    return (L["best %s / %s steps"]):format(F.Number(v), F.Number(ch.goal))
   end
-  return F.Number(v) .. " / " .. F.Number(ch.goal) .. " steps"
+  return F.Number(v) .. " / " .. F.Number(ch.goal) .. L[" steps"]
 end
 
 -- All current challenges with progress: { ch, period, value, done }
@@ -193,10 +194,10 @@ function C.Check()
       table.insert(c.badges, { kind = p.kind, id = ch.id, period = p.key, ts = time() })
       local tier = C.TIERS[ch.tier]
       ns.Banner.Show({
-        kicker = p.kind == "weekly" and "WEEKLY CHALLENGE COMPLETE" or "MONTHLY CHALLENGE COMPLETE",
-        title = ch.name, sub = tier.name .. "  -  " .. ch.desc, icon = tier.icon, color = tier.color,
+        kicker = p.kind == "weekly" and L["WEEKLY CHALLENGE COMPLETE"] or L["MONTHLY CHALLENGE COMPLETE"],
+        title = L[ch.name], sub = L[tier.name] .. "  -  " .. L[ch.desc], icon = tier.icon, color = tier.color,
       })
-      ns.Print(("Challenge complete: |cffffd100%s|r (%s)"):format(ch.name, tier.name))
+      ns.Print((L["Challenge complete: |cffffd100%s|r (%s)"]):format(L[ch.name], L[tier.name]))
       ns.Social.Announce("c", ch.id, p.key)
     end
     if p.kind == "weekly" then
@@ -208,10 +209,10 @@ function C.Check()
   local wdone = c.completed[week.key]
   if weeklyDone >= 3 and wdone and not wdone.champion then
     wdone.champion = time()
-    ns.Banner.Show({ kicker = "ALL WEEKLY CHALLENGES DONE", title = "Weekly Champion!",
-      sub = "Bronze, Silver and Gold complete. Show off!", icon = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
+    ns.Banner.Show({ kicker = L["ALL WEEKLY CHALLENGES DONE"], title = L["Weekly Champion!"],
+      sub = L["Bronze, Silver and Gold complete. Show off!"], icon = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
       color = ns.GOLD })
-    ns.Print("|cffffd100You are this week's Weekly Champion!|r")
+    ns.Print(L["|cffffd100You are this week's Weekly Champion!|r"])
     ns.Social.Announce("w", "champion", week.key)
   end
 end
@@ -250,8 +251,8 @@ function C.WeeklyRecap()
   if steps < 1 then return end
   local done = C.WeekChallengesDone(last.key)
   local place, total = ns.Social.PlaceInWeek(last.key, steps)
-  local text = ("Last week: %s steps, %d/3 challenges"):format(F.Number(steps), done)
-  if total > 1 then text = text .. (", #%d of %d friends"):format(place, total) end
-  ns.Print(text .. ". New challenges are live!")
-  ns.Banner.Toast({ title = "Weekly recap", text = text, icon = "Interface\\Icons\\INV_Misc_Note_01" })
+  local text = (L["Last week: %s steps, %d/3 challenges"]):format(F.Number(steps), done)
+  if total > 1 then text = text .. (L[", #%d of %d friends"]):format(place, total) end
+  ns.Print(text .. L[". New challenges are live!"])
+  ns.Banner.Toast({ title = L["Weekly recap"], text = text, icon = "Interface\\Icons\\INV_Misc_Note_01" })
 end

@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 local CARD_W, CARD_H = 580, 62
@@ -82,32 +83,32 @@ local function Card(parent, y)
     self.edge:SetVertexColor(unpack(tier.color))
     self.icon:SetTexture(tier.icon)
     self.icon:SetDesaturated(false)
-    self.title:SetText(("|cff%s%s|r   %s"):format(Hex(tier.color), tier.name:upper(), ch.name))
-    self.desc:SetText(ch.desc)
+    self.title:SetText(("|cff%s%s|r   %s"):format(Hex(tier.color), L[tier.name]:upper(), L[ch.name]))
+    self.desc:SetText(L[ch.desc])
     self.bar:SetValue(math.min(1, e.value / ch.goal))
     self.prog:SetText(ns.Challenges.ProgressText(ch, e.value))
     if e.done then
       self.bar:SetStatusBarColor(0.2, 0.85, 0.3)
-      self.status:SetText(CHECK .. " |cff33dd55Done " .. date("%b %d", e.done) .. "|r")
+      self.status:SetText(CHECK .. L[" |cff33dd55Done "] .. date("%b %d", e.done) .. "|r")
     else
       self.bar:SetStatusBarColor(unpack(tier.color))
       self.status:SetText(("|cffaaaaaa%d%%|r"):format(math.floor(math.min(1, e.value / ch.goal) * 100)))
     end
     local names = FriendNames(ns.Challenges.FriendsDone(e.period.key, ch.id))
-    self.friends:SetText(names and ("|cff888888Done by|r " .. names) or "")
+    self.friends:SetText(names and (L["|cff888888Done by|r "] .. names) or "")
   end
   return c
 end
 
 function ns.BuildChallengesPage(page)
-  local _, weekReset = Header(page, 0, "This week's challenges")
+  local _, weekReset = Header(page, 0, L["This week's challenges"])
   local cards = {}
   for i = 1, 3 do cards[i] = Card(page, -20 - (i - 1) * (CARD_H + 4)) end
 
   local champ = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   champ:SetPoint("TOPLEFT", 4, -222)
 
-  local _, monthReset = Header(page, -248, "This month's challenges")
+  local _, monthReset = Header(page, -248, L["This month's challenges"])
   for i = 4, 5 do cards[i] = Card(page, -268 - (i - 4) * (CARD_H + 4)) end
 
   local footer = page:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -121,23 +122,23 @@ function ns.BuildChallengesPage(page)
       if cards[i] then cards[i]:Set(e) end
     end
     local now = time()
-    weekReset:SetText("New challenges in " .. F.Countdown(week.endTs - now))
-    monthReset:SetText("Resets in " .. F.Countdown(month.endTs - now))
+    weekReset:SetText(L["New challenges in "] .. F.Countdown(week.endTs - now))
+    monthReset:SetText(L["Resets in "] .. F.Countdown(month.endTs - now))
 
     local done = ns.cdb.completed[week.key]
     if done and done.champion then
-      champ:SetText(CHECK .. " |cffffd100You are this week's Weekly Champion!|r")
+      champ:SetText(CHECK .. L[" |cffffd100You are this week's Weekly Champion!|r"])
     else
       local left = 3 - ns.Challenges.WeekChallengesDone(week.key)
-      champ:SetText(("|cffaaaaaaFinish %d more to become |r|cffffd100Weekly Champion|r"):format(left))
+      champ:SetText((L["|cffaaaaaaFinish %d more to become |r|cffffd100Weekly Champion|r"]):format(left))
     end
     local champs = FriendNames(ns.Challenges.FriendsDone(week.key, "champion"))
-    if champs then champ:SetText(champ:GetText() .. "   |cff888888Champions:|r " .. champs) end
+    if champs then champ:SetText(champ:GetText() .. L["   |cff888888Champions:|r "] .. champs) end
 
     local last = ns.Challenges.WeekPeriod(week.startTs - 3 * 86400)
     local lastSteps = ns.Challenges.Gather(last).steps
     local w, m, c = ns.Challenges.Counts()
-    footer:SetText(("Last week: %s steps, %d/3 challenges.     Lifetime: %d weekly, %d monthly, Weekly Champion x%d")
+    footer:SetText((L["Last week: %s steps, %d/3 challenges.     Lifetime: %d weekly, %d monthly, Weekly Champion x%d"])
       :format(F.Number(lastSteps), ns.Challenges.WeekChallengesDone(last.key), w, m, c))
   end
 end

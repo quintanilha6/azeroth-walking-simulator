@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 local A = {}
@@ -32,7 +33,7 @@ function A.RankIndex(steps)
   return idx
 end
 
-function A.RankName(i) return (A.RANKS[i] or A.RANKS[1])[2] end
+function A.RankName(i) return L[(A.RANKS[i] or A.RANKS[1])[2]] end
 
 function A.RankColored(i)
   i = math.max(1, math.min(#A.RANKS, i or 1))
@@ -47,7 +48,7 @@ A.CHECK = "|TInterface\\RaidFrame\\ReadyCheck-Ready:12|t"
 function A.NextRankText(steps)
   local nextRank = A.RANKS[A.RankIndex(steps) + 1]
   if not nextRank then return nil end
-  return ("%s more steps to %s"):format(F.Number(nextRank[1] - steps), nextRank[2])
+  return (L["%s more steps to %s"]):format(F.Number(nextRank[1] - steps), L[nextRank[2]])
 end
 
 -- Tooltip explaining ranks, with the full list and your progress
@@ -55,13 +56,13 @@ function A.ShowRankTooltip(owner)
   local steps = ns.cdb.total.steps
   local idx = A.MyRank()
   GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-  GameTooltip:AddLine("Walker rank: " .. A.RankColored(idx))
-  GameTooltip:AddLine("Ranks are earned from the all-time steps you walk on this character.", 1, 1, 1, true)
-  GameTooltip:AddLine(A.NextRankText(steps) or "Max rank reached. Legendary walker!", 0.99, 0.6, 0.3)
+  GameTooltip:AddLine(L["Walker rank: "] .. A.RankColored(idx))
+  GameTooltip:AddLine(L["Ranks are earned from the all-time steps you walk on this character."], 1, 1, 1, true)
+  GameTooltip:AddLine(A.NextRankText(steps) or L["Max rank reached. Legendary walker!"], 0.99, 0.6, 0.3)
   GameTooltip:AddLine(" ")
   for i, r in ipairs(A.RANKS) do
     local mark = i <= idx and (A.CHECK .. " ") or "     "
-    GameTooltip:AddDoubleLine(mark .. A.RankColored(i), F.Number(r[1]) .. " steps", 1, 1, 1, 0.7, 0.7, 0.7)
+    GameTooltip:AddDoubleLine(mark .. A.RankColored(i), F.Number(r[1]) .. L[" steps"], 1, 1, 1, 0.7, 0.7, 0.7)
   end
   GameTooltip:Show()
 end
@@ -192,10 +193,10 @@ function A.Check(silent)
     c.rank = math.max(c.rank or 1, rank)
   elseif rank > c.rank then
     c.rank = rank
-    ns.Banner.Show({ kicker = "RANK UP", title = A.RankName(rank),
-      sub = ("Rank %d of %d  -  %s steps walked"):format(rank, #A.RANKS, F.Number(c.total.steps)),
+    ns.Banner.Show({ kicker = L["RANK UP"], title = A.RankName(rank),
+      sub = (L["Rank %d of %d  -  %s steps walked"]):format(rank, #A.RANKS, F.Number(c.total.steps)),
       icon = "Interface\\Icons\\Ability_Rogue_Sprint", color = ns.ORANGE })
-    ns.Print("Rank up! You are now a " .. A.RankColored(rank) .. ".")
+    ns.Print(L["Rank up! You are now a "] .. A.RankColored(rank) .. ".")
     ns.Social.Announce("r", tostring(rank), "")
   end
 
@@ -205,9 +206,9 @@ function A.Check(silent)
       if (value or 0) >= goal then
         c.achievements[a.id] = time()
         if not silent then
-          ns.Banner.Show({ kicker = "ACHIEVEMENT EARNED", title = a.name, sub = a.desc, icon = a.icon,
+          ns.Banner.Show({ kicker = L["ACHIEVEMENT EARNED"], title = L[a.name], sub = L[a.desc], icon = a.icon,
             color = ns.GOLD })
-          ns.Print(("Achievement earned: |cffffd100%s|r - %s"):format(a.name, a.desc))
+          ns.Print((L["Achievement earned: |cffffd100%s|r - %s"]):format(L[a.name], L[a.desc]))
           ns.Social.Announce("a", a.id, "")
         end
       end

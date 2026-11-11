@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 -- Round minimap button (no libraries). Drag it around the minimap edge.
@@ -26,11 +27,11 @@ local function ShowTooltip(b)
   GameTooltip:SetOwner(b, "ANCHOR_LEFT")
   GameTooltip:AddLine("Azeroth Walking Simulator", ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3])
   local today = ns.GetDay(date("%Y-%m-%d"))
-  GameTooltip:AddDoubleLine("Today", F.Number(today.s) .. " steps", 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Rank", ns.Achievements.RankColored(ns.Achievements.MyRank()), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Today"], F.Number(today.s) .. L[" steps"], 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Rank"], ns.Achievements.RankColored(ns.Achievements.MyRank()), 0.7, 0.7, 0.7, 1, 1, 1)
   GameTooltip:AddLine(" ")
-  GameTooltip:AddLine("Click: open    Right-click: route    Shift-click: options", 0.5, 0.5, 0.5)
-  GameTooltip:AddLine("Drag to move", 0.5, 0.5, 0.5)
+  GameTooltip:AddLine(L["Click: open    Right-click: route    Shift-click: options"], 0.5, 0.5, 0.5)
+  GameTooltip:AddLine(L["Drag to move"], 0.5, 0.5, 0.5)
   GameTooltip:Show()
 end
 

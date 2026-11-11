@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 ---------------------------------------------------------------------------
@@ -10,25 +11,25 @@ function ns.StartSession(auto, quiet)
     start = time(), elapsed = 0, moving = 0, distance = 0, steps = 0,
     zones = {}, paused = false, auto = auto and true or false,
   }
-  if not quiet then ns.Print(auto and "Session started (auto)." or "Session started.") end
+  if not quiet then ns.Print(auto and L["Session started (auto)."] or L["Session started."]) end
   ns.RefreshUI()
 end
 
 function ns.PauseSession()
   local s = ns.cdb.current
-  if not s then return ns.Print("No session running.") end
+  if not s then return ns.Print(L["No session running."]) end
   if s.paused then return end
   s.paused = true
-  ns.Print("Session paused.")
+  ns.Print(L["Session paused."])
   ns.RefreshUI()
 end
 
 function ns.ResumeSession()
   local s = ns.cdb.current
-  if not s then return ns.Print("No session to resume.") end
+  if not s then return ns.Print(L["No session to resume."]) end
   if not s.paused then return end
   s.paused = false
-  ns.Print("Session resumed.")
+  ns.Print(L["Session resumed."])
   ns.RefreshUI()
 end
 
@@ -37,7 +38,7 @@ function ns.StopSession(endTime, quiet)
   local c = ns.cdb
   local s = c.current
   if not s then
-    if not quiet then ns.Print("No session running.") end
+    if not quiet then ns.Print(L["No session running."]) end
     return
   end
   c.current = nil
@@ -45,7 +46,7 @@ function ns.StopSession(endTime, quiet)
   s.paused, s.lastSeen = nil, nil
 
   if s.steps < 1 then
-    if not quiet then ns.Print("Session ended with no steps - not saved.") end
+    if not quiet then ns.Print(L["Session ended with no steps - not saved."]) end
   else
     ns.Routes.Finish(s)
     table.insert(c.history, 1, s)
@@ -54,7 +55,7 @@ function ns.StopSession(endTime, quiet)
     c.total.sessions = c.total.sessions + 1
     ns.SyncAccount()
     if not quiet then
-      ns.Print(("Session saved: %s steps, %s, %s moving, pace %s"):format(
+      ns.Print((L["Session saved: %s steps, %s, %s moving, pace %s"]):format(
         F.Number(s.steps), F.Distance(s.distance), F.Time(s.moving), F.Pace(s.moving, s.distance)))
     end
     ns.Social.OnActivityFinished(s)
@@ -71,7 +72,7 @@ end
 
 function ns.SetAutoMode(on)
   ns.settings.autoMode = on
-  ns.Print("Auto mode " .. (on and "ON: a session starts on login and ends on logout." or "OFF: use Start/Stop."))
+  ns.Print(L["Auto mode "] .. (on and L["ON: a session starts on login and ends on logout."] or L["OFF: use Start/Stop."]))
   if on and not ns.cdb.current then ns.StartSession(true) end
   ns.RefreshUI()
 end
@@ -81,7 +82,7 @@ function ns.ResetCharacter()
   ns.InitCharDB()
   ns.SyncAccount()
   if ns.settings.autoMode then ns.StartSession(true, true) end
-  ns.Print("Character data reset.")
+  ns.Print(L["Character data reset."])
   ns.RefreshUI()
 end
 

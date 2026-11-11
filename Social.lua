@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 -- Friends and guildies with the addon swap stats, activities and achievements
@@ -441,12 +442,12 @@ local function CheckOvertakes(only)
           local name = S.ColoredName(guid)
           local text
           if rel == "ahead" then
-            text = ("You passed %s on this week's leaderboard!"):format(name)
+            text = (L["You passed %s on this week's leaderboard!"]):format(name)
           else
-            text = ("%s just passed you on this week's leaderboard!"):format(name)
+            text = (L["%s just passed you on this week's leaderboard!"]):format(name)
           end
           ns.Print(text)
-          ns.Banner.Toast({ title = rel == "ahead" and "Overtake!" or "You've been passed!", text = text,
+          ns.Banner.Toast({ title = rel == "ahead" and L["Overtake!"] or L["You've been passed!"], text = text,
             icon = "Interface\\Icons\\Ability_Rogue_Sprint" })
         end
       end
@@ -521,7 +522,7 @@ local function HandleActivity(guid, p)
 
   -- Only announce fresh activities (not old ones sent as a hello reply)
   if ns.settings.socialChat and time() - item.finish < 600 then
-    ns.Print(("%s finished an activity: %s steps, %s in %s. Give kudos in /aws social"):format(
+    ns.Print((L["%s finished an activity: %s steps, %s in %s. Give kudos in /aws social"]):format(
       S.ColoredName(guid), F.Number(item.steps), F.Distance(item.distance), F.Time(item.moving)))
   end
 end
@@ -534,9 +535,9 @@ local function HandleKudos(guid, p)
       for _, n in ipairs(a.kudos) do if n == guid then return end end
       table.insert(a.kudos, guid)
       ns.cdb.kudosReceived = ns.cdb.kudosReceived + 1
-      local text = ("%s gave you kudos for your %s-step activity!"):format(S.ColoredName(guid), F.Number(a.steps))
+      local text = (L["%s gave you kudos for your %s-step activity!"]):format(S.ColoredName(guid), F.Number(a.steps))
       ns.Print(text)
-      ns.Banner.Toast({ title = "Kudos!", text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal" })
+      ns.Banner.Toast({ title = L["Kudos!"], text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal" })
       ns.Achievements.Check()
       return
     end
@@ -548,16 +549,16 @@ local function EventText(kind, id)
   if kind == "c" then
     local ch = ns.Challenges.ById(id)
     if ch then
-      return ("completed the %s challenge |cffffd100%s|r"):format(ns.Challenges.TierName(ch), ch.name),
+      return (L["completed the %s challenge |cffffd100%s|r"]):format(ns.Challenges.TierName(ch), L[ch.name]),
         ns.Challenges.TIERS[ch.tier].icon
     end
   elseif kind == "w" then
-    return "became |cffffd100Weekly Champion|r!", "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    return L["became |cffffd100Weekly Champion|r!"], "Interface\\Icons\\INV_Misc_Head_Dragon_01"
   elseif kind == "a" then
     local a = ns.Achievements.ById(id)
-    if a then return ("earned |cffffd100%s|r"):format(a.name), a.icon end
+    if a then return (L["earned |cffffd100%s|r"]):format(L[a.name]), a.icon end
   elseif kind == "r" then
-    return "ranked up to " .. ns.Achievements.RankColored(tonumber(id)), "Interface\\Icons\\Ability_Rogue_Sprint"
+    return L["ranked up to "] .. ns.Achievements.RankColored(tonumber(id)), "Interface\\Icons\\Ability_Rogue_Sprint"
   end
 end
 
@@ -584,7 +585,7 @@ local function HandleEvent(guid, p)
 
   local line = S.ColoredName(guid) .. " " .. text
   if ns.settings.socialChat then ns.Print(line) end
-  ns.Banner.Toast({ title = "Friend news", text = line, icon = icon })
+  ns.Banner.Toast({ title = L["Friend news"], text = line, icon = icon })
 end
 
 -- via: "GUILD", "WHISPER", "CHANNEL" or "BN"
@@ -727,13 +728,13 @@ end
 ---------------------------------------------------------------------------
 function S.ShareText(a)
   local zone = a.zones and a.zones[1]
-  return ("[Azeroth Walking Simulator] %s steps, %s in %s (pace %s)%s - Rank: %s"):format(F.Number(a.steps),
-    F.Distance(a.distance), F.Time(a.moving), F.Pace(a.moving, a.distance), zone and (" around " .. zone) or "",
+  return (L["[Azeroth Walking Simulator] %s steps, %s in %s (pace %s)%s - Rank: %s"]):format(F.Number(a.steps),
+    F.Distance(a.distance), F.Time(a.moving), F.Pace(a.moving, a.distance), zone and (L[" around "] .. zone) or "",
     ns.Achievements.RankName(ns.Achievements.MyRank()))
 end
 
 function S.ShareToChat(a)
-  if not a then return ns.Print("No activity to share yet.") end
+  if not a then return ns.Print(L["No activity to share yet."]) end
   local text = S.ShareText(a)
   if ChatFrame_OpenChat then ChatFrame_OpenChat(text) else ns.Print(text) end
 end

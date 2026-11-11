@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 local CONTENT_W = 570
@@ -52,28 +53,28 @@ local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 140 }, { "Rank", 182, 132 },
 
 local function BoardTooltip(row, d)
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-  GameTooltip:AddLine(ns.Social.ColoredName(d.guid) .. (d.me and "  (you)" or ""))
+  GameTooltip:AddLine(ns.Social.ColoredName(d.guid) .. (d.me and L["  (you)"] or ""))
   local A = ns.Achievements
-  GameTooltip:AddLine(("%s  |cff888888(rank %d of %d)|r"):format(A.RankColored(d.rank), d.rank or 1, #A.RANKS))
+  GameTooltip:AddLine((L["%s  |cff888888(rank %d of %d)|r"]):format(A.RankColored(d.rank), d.rank or 1, #A.RANKS))
   local nextText = A.NextRankText(d.all or 0)
   if nextText then GameTooltip:AddLine(nextText, 0.99, 0.6, 0.3) end
   if d.active then
-    GameTooltip:AddLine(("Walking now: %s steps this session"):format(F.Number(d.sessionSteps or 0)), 0.2, 0.9, 0.3)
+    GameTooltip:AddLine((L["Walking now: %s steps this session"]):format(F.Number(d.sessionSteps or 0)), 0.2, 0.9, 0.3)
   elseif d.online then
-    GameTooltip:AddLine("Online", 0.9, 0.8, 0.2)
+    GameTooltip:AddLine(L["Online"], 0.9, 0.8, 0.2)
   elseif d.e and d.e.updated then
-    GameTooltip:AddLine("Last seen " .. F.Date(d.e.updated), 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(L["Last seen "] .. F.Date(d.e.updated), 0.6, 0.6, 0.6)
   end
-  AddLine("Today", F.Number(d.today) .. " steps")
-  AddLine("This week", F.Number(d.week) .. " steps")
-  AddLine("This month", F.Number(d.month) .. " steps")
-  AddLine("All-time", F.Number(d.all) .. " steps")
-  AddLine("Weekly challenges", (d.weekDone or 0) .. " / 3")
-  AddLine("Trophies", d.trophies or 0)
-  AddLine("Streak", (d.streak or 0) .. " days")
-  if d.e and d.e.since and d.e.since > 0 then AddLine("Walking since", F.Day(d.e.since)) end
+  AddLine(L["Today"], F.Number(d.today) .. L[" steps"])
+  AddLine(L["This week"], F.Number(d.week) .. L[" steps"])
+  AddLine(L["This month"], F.Number(d.month) .. L[" steps"])
+  AddLine("All-time", F.Number(d.all) .. L[" steps"])
+  AddLine(L["Weekly challenges"], (d.weekDone or 0) .. " / 3")
+  AddLine(L["Trophies"], d.trophies or 0)
+  AddLine(L["Streak"], (d.streak or 0) .. L[" days"])
+  if d.e and d.e.since and d.e.since > 0 then AddLine(L["Walking since"], F.Day(d.e.since)) end
   GameTooltip:AddLine(" ")
-  GameTooltip:AddLine("Ranks come from all-time steps. See them all in the Trophies tab.", 0.5, 0.5, 0.5, true)
+  GameTooltip:AddLine(L["Ranks come from all-time steps. See them all in the Trophies tab."], 0.5, 0.5, 0.5, true)
   GameTooltip:Show()
 end
 
@@ -81,7 +82,7 @@ local function BuildBoard(box)
   for _, c in ipairs(BOARD_COLS) do
     local h = box:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     h:SetPoint("TOPLEFT", c[2], 0)
-    h:SetText(c[1])
+    h:SetText(L[c[1]])
   end
   local _, content = ns.MakeScroll(box, "AWSBoardScroll", -16)
   local rows = {}
@@ -146,7 +147,7 @@ local function BuildBoard(box)
       local medal = MEDALS[i]
       r.cells[1]:SetText(i)
       if medal and d.value > 0 then r.cells[1]:SetTextColor(unpack(medal)) else r.cells[1]:SetTextColor(1, 1, 1) end
-      r.cells[2]:SetText(ns.Social.ColoredName(d.guid) .. (d.me and " |cff888888(you)|r" or ""))
+      r.cells[2]:SetText(ns.Social.ColoredName(d.guid) .. (d.me and L[" |cff888888(you)|r"] or ""))
       r.cells[3]:SetText(ns.Achievements.RankColored(d.rank))
       r.cells[4]:SetText(F.Number(d.value))
       r.cells[5]:SetText(d.trophies or 0)
@@ -171,19 +172,19 @@ local function FeedTooltip(row, it)
     GameTooltip:Show()
     return
   end
-  AddLine("Steps", F.Number(it.steps))
-  AddLine("Distance", F.Distance(it.distance))
-  AddLine("Moving time", F.Time(it.moving))
-  AddLine("Elapsed time", F.Time(it.elapsed))
-  AddLine("Avg pace", F.Pace(it.moving, it.distance))
+  AddLine(L["Steps"], F.Number(it.steps))
+  AddLine(L["Distance"], F.Distance(it.distance))
+  AddLine(L["Moving time"], F.Time(it.moving))
+  AddLine(L["Elapsed time"], F.Time(it.elapsed))
+  AddLine(L["Avg pace"], F.Pace(it.moving, it.distance))
   if it.zones and #it.zones > 0 then
-    GameTooltip:AddLine("Zones: " .. table.concat(it.zones, ", "), 1, 1, 1, true)
+    GameTooltip:AddLine(L["Zones: "] .. table.concat(it.zones, ", "), 1, 1, 1, true)
   end
   if it.mine and it.kudosList and #it.kudosList > 0 then
     local names = {}
     for _, g in ipairs(it.kudosList) do table.insert(names, ns.Social.ColoredName(g)) end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Kudos from: " .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
+    GameTooltip:AddLine(L["Kudos from: "] .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
   end
   GameTooltip:Show()
 end
@@ -210,7 +211,7 @@ local function BuildFeed(box)
     r.bottom:SetJustifyH("LEFT")
     r.bottom:SetWordWrap(false)
 
-    r.btn = ns.SmallButton(r, "Kudos", 72, function()
+    r.btn = ns.SmallButton(r, L["Kudos"], 72, function()
       local it = r.item
       if it.mine then ns.QuickShare.Open(r.btn, ns.QuickShare.ActivityText(it.src))
       else ns.Social.GiveKudos(it) end
@@ -234,7 +235,7 @@ local function BuildFeed(box)
     end)
     r.map:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine("View route")
+      GameTooltip:AddLine(L["View route"])
       GameTooltip:Show()
     end)
     r.map:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -268,17 +269,17 @@ local function BuildFeed(box)
         local zone = it.zones and it.zones[1]
         r.top:SetText(("%s  |cff888888%s%s|r"):format(ns.Social.ColoredName(it.from), when,
           zone and ("  -  " .. zone) or ""))
-        r.bottom:SetText(("|cffccccccsteps|r %s   |cffcccccc%s   %s   %s|r"):format(F.Number(it.steps),
+        r.bottom:SetText((L["|cffccccccsteps|r %s   |cffcccccc%s   %s   %s|r"]):format(F.Number(it.steps),
           F.Distance(it.distance), F.Time(it.moving), F.Pace(it.moving, it.distance)))
         r.bg:SetVertexColor(1, 1, 1, i % 2 == 0 and 0.03 or 0)
         r.btn:Show()
         if it.mine then
-          r.btn:SetText("Share")
+          r.btn:SetText(L["Share"])
           r.btn:SetEnabled(true)
           local n = it.kudosList and #it.kudosList or 0
-          r.kudos:SetText(n > 0 and (n .. " kudos") or "")
+          r.kudos:SetText(n > 0 and (n .. L[" kudos"]) or "")
         else
-          r.btn:SetText(it.kudos and "Sent" or "Kudos")
+          r.btn:SetText(it.kudos and L["Sent"] or L["Kudos"])
           r.btn:SetEnabled(not it.kudos)
           r.kudos:SetText("")
         end
@@ -296,11 +297,10 @@ end
 ---------------------------------------------------------------------------
 local CATEGORIES = { { "friends", "Friends" }, { "guild", "Guild" }, { "everyone", "Everyone" } }
 local CATEGORY_EMPTY = {
-  friends = "None of your friends use Azeroth Walking Simulator yet (or they haven't been online with you).\n" ..
-    "Friends list and Battle.net friends playing WoW Forever show up here.",
+  -- (one string each: these are also the translation keys)
+  friends = "None of your friends use Azeroth Walking Simulator yet (or they haven't been online with you).\nFriends list and Battle.net friends playing WoW Forever show up here.",
   guild = "No guildies with Azeroth Walking Simulator yet. Tell your guild to install it!",
-  everyone = "No other walkers seen yet. Everyone with the addon (and the Everyone leaderboard turned on in " ..
-    "Settings) shows up here once you've both been online.",
+  everyone = "No other walkers seen yet. Everyone with the addon (and the Everyone leaderboard turned on in Settings) shows up here once you've both been online.",
 }
 
 function ns.BuildSocialPage(page)
@@ -323,25 +323,25 @@ function ns.BuildSocialPage(page)
   empty:SetJustifyH("LEFT")
 
   page.mode, page.period, page.category = "board", "week", "friends"
-  local boardBtn = ns.SmallButton(page, "Leaderboard", 100, function() page.mode = "board"; page:Refresh() end)
+  local boardBtn = ns.SmallButton(page, L["Leaderboard"], 100, function() page.mode = "board"; page:Refresh() end)
   boardBtn:SetPoint("TOPLEFT", 0, 0)
-  local feedBtn = ns.SmallButton(page, "Feed", 100, function() page.mode = "feed"; page:Refresh() end)
+  local feedBtn = ns.SmallButton(page, L["Feed"], 100, function() page.mode = "feed"; page:Refresh() end)
   feedBtn:SetPoint("LEFT", boardBtn, "RIGHT", 4, 0)
 
   -- Second row: which leaderboard (left) and which period (right)
   local catBtns = {}
   for i, c in ipairs(CATEGORIES) do
     local key = c[1]
-    local b = ns.SmallButton(page, c[2], 84, function() page.category = key; page:Refresh() end)
+    local b = ns.SmallButton(page, L[c[2]], 84, function() page.category = key; page:Refresh() end)
     if i == 1 then b:SetPoint("TOPLEFT", 0, -28)
     else b:SetPoint("LEFT", catBtns[i - 1], "RIGHT", 2, 0) end
-    b.key, b.label = key, c[2]
+    b.key, b.label = key, L[c[2]]
     catBtns[i] = b
   end
 
   local periodBtns = {}
   for i = #PERIODS, 1, -1 do
-    local key, label = PERIODS[i][1], PERIODS[i][2]
+    local key, label = PERIODS[i][1], L[PERIODS[i][2]]
     local b = ns.SmallButton(page, label, 68, function() page.period = key; page:Refresh() end)
     if i == #PERIODS then b:SetPoint("TOPRIGHT", -24, -28)
     else b:SetPoint("RIGHT", periodBtns[i + 1], "LEFT", -2, 0) end
@@ -370,15 +370,15 @@ function ns.BuildSocialPage(page)
     local items = feed:Refresh()
     local others = ns.Social.FriendCount(self.category)
     local warn = ""
-    if not ns.settings.shareEnabled then warn = "|cffff5555Sharing is OFF|r"
-    elseif self.category == "everyone" and not ns.settings.globalBoard then warn = "|cffff5555Everyone board is OFF|r" end
+    if not ns.settings.shareEnabled then warn = L["|cffff5555Sharing is OFF|r"]
+    elseif self.category == "everyone" and not ns.settings.globalBoard then warn = L["|cffff5555Everyone board is OFF|r"] end
     info:SetText(warn)
 
     if isBoard and others == 0 then
-      empty:SetText(CATEGORY_EMPTY[self.category])
+      empty:SetText(L[CATEGORY_EMPTY[self.category]])
       empty:Show()
     elseif not isBoard and items == 0 then
-      empty:SetText("Nothing here yet. Activities, challenges and achievements from you and your friends show up here.")
+      empty:SetText(L["Nothing here yet. Activities, challenges and achievements from you and your friends show up here."])
       empty:Show()
     else
       empty:Hide()

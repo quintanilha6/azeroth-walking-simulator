@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 local WIDTH, HEIGHT = 640, 610
@@ -41,21 +42,21 @@ local function BuildOverview(page)
   local o = {}
   local COL = { 0, 150, 300, 450 }
 
-  Header(page, 0, 0, "This session")
+  Header(page, 0, 0, L["This session"])
   o.sStatus = Text(page, "GameFontHighlightSmall", 110, -1)
-  o.sSteps = Tile(page, COL[1], -18, "Steps")
-  o.sDist = Tile(page, COL[2], -18, "Distance")
-  o.sMoving = Tile(page, COL[3], -18, "Moving time")
-  o.sPace = Tile(page, COL[4], -18, "Avg pace")
+  o.sSteps = Tile(page, COL[1], -18, L["Steps"])
+  o.sDist = Tile(page, COL[2], -18, L["Distance"])
+  o.sMoving = Tile(page, COL[3], -18, L["Moving time"])
+  o.sPace = Tile(page, COL[4], -18, L["Avg pace"])
 
-  Header(page, 0, -66, "Steps")
-  o.tSteps = Tile(page, COL[1], -84, "Today")
-  o.wSteps = Tile(page, COL[2], -84, "This week")
-  o.mSteps = Tile(page, COL[3], -84, "This month")
-  o.tDist = Tile(page, COL[4], -84, "Distance today")
+  Header(page, 0, -66, L["Steps"])
+  o.tSteps = Tile(page, COL[1], -84, L["Today"])
+  o.wSteps = Tile(page, COL[2], -84, L["This week"])
+  o.mSteps = Tile(page, COL[3], -84, L["This month"])
+  o.tDist = Tile(page, COL[4], -84, L["Distance today"])
 
   -- 7-day bar chart
-  Header(page, 0, -132, "Last 7 days")
+  Header(page, 0, -132, L["Last 7 days"])
   local chart = CreateFrame("Frame", nil, page)
   chart:SetPoint("TOPLEFT", 0, -150)
   chart:SetSize(300, 100)
@@ -79,23 +80,23 @@ local function BuildOverview(page)
     o.bars[i] = { bar = bar, day = day, val = val }
   end
 
-  Header(page, 330, -132, "Rank & streak")
+  Header(page, 330, -132, L["Rank & streak"])
   o.rank = Text(page, "GameFontHighlightLarge", 330, -152)
-  o.curStreak = Tile(page, 330, -180, "Current streak")
-  o.bestStreak = Tile(page, 450, -180, "Longest streak")
+  o.curStreak = Tile(page, 330, -180, L["Current streak"])
+  o.bestStreak = Tile(page, 450, -180, L["Longest streak"])
   o.weekly = Text(page, "GameFontHighlightSmall", 330, -226)
 
-  o.charHeader = Header(page, 0, -262, "All-time: this character")
-  o.cSteps = Tile(page, COL[1], -280, "Steps")
-  o.cDist = Tile(page, COL[2], -280, "Distance")
-  o.cMoving = Tile(page, COL[3], -280, "Moving time")
-  o.cSessions = Tile(page, COL[4], -280, "Activities")
+  o.charHeader = Header(page, 0, -262, L["All-time: this character"])
+  o.cSteps = Tile(page, COL[1], -280, L["Steps"])
+  o.cDist = Tile(page, COL[2], -280, L["Distance"])
+  o.cMoving = Tile(page, COL[3], -280, L["Moving time"])
+  o.cSessions = Tile(page, COL[4], -280, L["Activities"])
 
-  o.acctHeader = Header(page, 0, -328, "All-time: account")
-  o.aSteps = Tile(page, COL[1], -346, "Steps")
-  o.aDist = Tile(page, COL[2], -346, "Distance")
-  o.aMoving = Tile(page, COL[3], -346, "Moving time")
-  o.aSessions = Tile(page, COL[4], -346, "Activities")
+  o.acctHeader = Header(page, 0, -328, L["All-time: account"])
+  o.aSteps = Tile(page, COL[1], -346, L["Steps"])
+  o.aDist = Tile(page, COL[2], -346, L["Distance"])
+  o.aMoving = Tile(page, COL[3], -346, L["Moving time"])
+  o.aSessions = Tile(page, COL[4], -346, L["Activities"])
 
   function page:Refresh()
     local s = ns.cdb.current
@@ -122,7 +123,7 @@ local function BuildOverview(page)
     for i, d in ipairs(days) do
       local b = o.bars[i]
       b.bar:SetHeight(math.max(1, 66 * d.s / max))
-      b.day:SetText(i == 7 and "Today" or date("%a", d.ts))
+      b.day:SetText(i == 7 and L["Today"] or date("%a", d.ts))
       if d.s >= 1000 then b.val:SetText(("%.1fk"):format(d.s / 1000))
       elseif d.s >= 1 then b.val:SetText(F.Number(d.s))
       else b.val:SetText("") end
@@ -130,20 +131,20 @@ local function BuildOverview(page)
 
     o.rank:SetText(ns.Achievements.RankColored(ns.Achievements.MyRank()))
     local cur, best = ns.Streaks()
-    o.curStreak:SetText(cur .. (cur == 1 and " day" or " days"))
-    o.bestStreak:SetText(best .. (best == 1 and " day" or " days"))
-    o.weekly:SetText(("Weekly challenges: %d / 3 done"):format(ns.Challenges.WeekChallengesDone()))
+    o.curStreak:SetText(cur .. (cur == 1 and L[" day"] or L[" days"]))
+    o.bestStreak:SetText(best .. (best == 1 and L[" day"] or L[" days"]))
+    o.weekly:SetText((L["Weekly challenges: %d / 3 done"]):format(ns.Challenges.WeekChallengesDone()))
 
     local t = ns.cdb.total
-    o.charHeader:SetText(("All-time: %s (since %s)"):format(UnitName("player"), F.Day(ns.cdb.since)))
+    o.charHeader:SetText((L["All-time: %s (since %s)"]):format(UnitName("player"), F.Day(ns.cdb.since)))
     o.cSteps:SetText(F.Number(t.steps))
     o.cDist:SetText(F.Distance(t.distance))
     o.cMoving:SetText(F.Time(t.moving))
     o.cSessions:SetText(t.sessions)
 
     local a = ns.AccountTotals()
-    o.acctHeader:SetText(("All-time: account (%d character%s, since %s)"):format(
-      a.chars, a.chars == 1 and "" or "s", F.Day(ns.db.since)))
+    o.acctHeader:SetText(a.chars == 1 and (L["All-time: account (1 character, since %s)"]):format(F.Day(ns.db.since))
+      or (L["All-time: account (%d characters, since %s)"]):format(a.chars, F.Day(ns.db.since)))
     o.aSteps:SetText(F.Number(a.steps))
     o.aDist:SetText(F.Distance(a.distance))
     o.aMoving:SetText(F.Time(a.moving))
@@ -158,6 +159,18 @@ local COLS = { { "Date", 0 }, { "Steps", 120 }, { "Distance", 195 }, { "Moving",
                { "Zones", 435 } }
 local ROW_W, ROW_H = 570, 20
 
+StaticPopupDialogs["AWS_RELOAD"] = {
+  text = "Reload the interface now to change the language?",
+  button1 = YES, button2 = NO,
+  OnShow = function(self)
+    if self.text and self.text.SetText then
+      self.text:SetText(L["Reload the interface now to change the language?"])
+    end
+  end,
+  OnAccept = function() ReloadUI() end,
+  timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+}
+
 StaticPopupDialogs["AWS_DELETE_SESSION"] = {
   text = "Delete this activity from your history?\n(All-time totals are not changed.)",
   button1 = YES, button2 = NO,
@@ -167,38 +180,38 @@ StaticPopupDialogs["AWS_DELETE_SESSION"] = {
 
 local function ShowSessionTooltip(row, s)
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-  GameTooltip:AddLine(F.Date(s.start) .. (s.auto and "  (auto)" or "  (manual)"), unpack(ns.ORANGE))
-  GameTooltip:AddDoubleLine("Steps", F.Number(s.steps), 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Distance", F.Distance(s.distance), 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Moving time", F.Time(s.moving), 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Elapsed time", F.Time(s.elapsed), 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Avg pace", F.Pace(s.moving, s.distance), 0.7, 0.7, 0.7, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Ended", F.Date(s.finish), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddLine(F.Date(s.start) .. (s.auto and L["  (auto)"] or L["  (manual)"]), unpack(ns.ORANGE))
+  GameTooltip:AddDoubleLine(L["Steps"], F.Number(s.steps), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Distance"], F.Distance(s.distance), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Moving time"], F.Time(s.moving), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Elapsed time"], F.Time(s.elapsed), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Avg pace"], F.Pace(s.moving, s.distance), 0.7, 0.7, 0.7, 1, 1, 1)
+  GameTooltip:AddDoubleLine(L["Ended"], F.Date(s.finish), 0.7, 0.7, 0.7, 1, 1, 1)
   if s.zones and #s.zones > 0 then
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Zones: " .. table.concat(s.zones, ", "), 1, 1, 1, true)
+    GameTooltip:AddLine(L["Zones: "] .. table.concat(s.zones, ", "), 1, 1, 1, true)
   end
   if s.kudos and #s.kudos > 0 then
     local names = {}
     for _, g in ipairs(s.kudos) do table.insert(names, ns.Social.ColoredName(g)) end
-    GameTooltip:AddLine("Kudos from: " .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
+    GameTooltip:AddLine(L["Kudos from: "] .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
   end
   GameTooltip:AddLine(" ")
-  if ns.Routes.Has(s) then GameTooltip:AddLine("Map icon: view route", 0.5, 0.5, 0.5) end
-  GameTooltip:AddLine("Click: Quick Share   Shift-click: edit in chat box", 0.5, 0.5, 0.5)
+  if ns.Routes.Has(s) then GameTooltip:AddLine(L["Map icon: view route"], 0.5, 0.5, 0.5) end
+  GameTooltip:AddLine(L["Click: Quick Share   Shift-click: edit in chat box"], 0.5, 0.5, 0.5)
   GameTooltip:Show()
 end
 
 local function BuildActivities(page)
   for _, c in ipairs(COLS) do
     local h = Text(page, "GameFontNormalSmall", c[2] + 4, 0)
-    h:SetText(c[1])
+    h:SetText(L[c[1]])
   end
 
   local _, content = ns.MakeScroll(page, "AWSActivitiesScroll", -16)
 
   local empty = Text(page, "GameFontDisable", 4, -30)
-  empty:SetText("No activities yet. Finish a session to see it here.")
+  empty:SetText(L["No activities yet. Finish a session to see it here."])
 
   local rows = {}
   local function GetRow(i)
@@ -218,6 +231,8 @@ local function BuildActivities(page)
     r.del:SetSize(20, 20)
     r.del:SetPoint("RIGHT", 2, 0)
     r.del:SetScript("OnClick", function()
+      StaticPopupDialogs["AWS_DELETE_SESSION"].text =
+        L["Delete this activity from your history?\n(All-time totals are not changed.)"]
       StaticPopup_Show("AWS_DELETE_SESSION", nil, nil, r.index)
     end)
     -- Map button: open the route card (only shown when the activity has a route)
@@ -229,7 +244,7 @@ local function BuildActivities(page)
     r.route:SetScript("OnClick", function() ns.RouteViewer.Open(ns.cdb.history[r.index]) end)
     r.route:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine("View route")
+      GameTooltip:AddLine(L["View route"])
       GameTooltip:Show()
     end)
     r.route:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -310,55 +325,75 @@ local function BuildSettings(page)
   end
 
   local s = ns.settings
-  Header(page, 0, y, "Tracking")
+  Header(page, 0, y, L["Tracking"])
   y = y - 18
-  Check("Auto mode: start a session on login, end it on logout", "autoMode", function(on) ns.SetAutoMode(on) end)
+  Check(L["Auto mode: start a session on login, end it on logout"], "autoMode", function(on) ns.SetAutoMode(on) end)
   y = y - 24
-  Check("Show mini tracker", "trackerShown", function(on) s.trackerShown = on; ns.ApplyTrackerSettings() end)
-  Check("Lock mini tracker", "trackerLocked", function(on) s.trackerLocked = on end, 300)
+  Check(L["Show mini tracker"], "trackerShown", function(on) s.trackerShown = on; ns.ApplyTrackerSettings() end)
+  Check(L["Lock mini tracker"], "trackerLocked", function(on) s.trackerLocked = on end, 300)
   y = y - 24
-  Check("Banners and toasts", "banners", function(on) s.banners = on end)
-  Check("Sounds", "sounds", function(on) s.sounds = on end, 300)
+  Check(L["Banners and toasts"], "banners", function(on) s.banners = on end)
+  Check(L["Sounds"], "sounds", function(on) s.sounds = on end, 300)
   y = y - 24
-  Check("Show minimap button", "minimapShown", function(on) s.minimapShown = on; ns.MinimapButton.Apply() end)
+  Check(L["Show minimap button"], "minimapShown", function(on) s.minimapShown = on; ns.MinimapButton.Apply() end)
   y = y - 30
 
-  Header(page, 0, y, "Social")
+  Header(page, 0, y, L["Social"])
   y = y - 18
-  Check("Share my stats and activities with guild and friends", "shareEnabled", function(on)
+  Check(L["Share my stats and activities with guild and friends"], "shareEnabled", function(on)
     s.shareEnabled = on
     if on then ns.Social.BroadcastStats(true) end
   end)
   y = y - 24
-  Check("Join the Everyone leaderboard (all players with the addon)", "globalBoard", function(on)
+  Check(L["Join the Everyone leaderboard (all players with the addon)"], "globalBoard", function(on)
     ns.Social.SetGlobalBoard(on)
   end)
   y = y - 24
-  Check("Chat message when a friend finishes something", "socialChat", function(on) s.socialChat = on end)
+  Check(L["Chat message when a friend finishes something"], "socialChat", function(on) s.socialChat = on end)
   y = y - 30
 
-  Header(page, 0, y, "Display")
+  Header(page, 0, y, L["Display"])
   y = y - 20
   local updaters = {}
   local function Round(v) return math.floor(v * 100 + 0.5) / 100 end
-  table.insert(updaters, Stepper("Distance units",
-    function() return s.units == "mi" and "Miles" or "Kilometers" end,
+  table.insert(updaters, Stepper(L["Distance units"],
+    function() return s.units == "mi" and L["Miles"] or L["Kilometers"] end,
     function() s.units = (s.units == "mi") and "km" or "mi"; page:Refresh(); ns.RefreshUI() end,
     function() s.units = (s.units == "mi") and "km" or "mi"; page:Refresh(); ns.RefreshUI() end))
-  table.insert(updaters, Stepper("Tracker size",
+  -- Language: cycle through the list; a /reload applies it everywhere
+  local function LanguageIndex()
+    for i, lang in ipairs(ns.LANGUAGES) do if lang.code == s.language then return i end end
+    return 1
+  end
+  local function SetLanguage(step)
+    local n = #ns.LANGUAGES
+    s.language = ns.LANGUAGES[(LanguageIndex() - 1 + step) % n + 1].code
+    page:Refresh()
+    StaticPopup_Show("AWS_RELOAD")
+  end
+  table.insert(updaters, Stepper(L["Language"],
+    function()
+      local lang = ns.LANGUAGES[LanguageIndex()]
+      return lang.code == "auto" and L[lang.name] or lang.name
+    end,
+    function() SetLanguage(-1) end,
+    function() SetLanguage(1) end))
+  table.insert(updaters, Stepper(L["Tracker size"],
     function() return ("%d%%"):format(s.trackerScale * 100 + 0.5) end,
     function() s.trackerScale = math.max(0.6, Round(s.trackerScale - 0.1)); ns.ApplyTrackerSettings(); page:Refresh() end,
     function() s.trackerScale = math.min(2.0, Round(s.trackerScale + 0.1)); ns.ApplyTrackerSettings(); page:Refresh() end))
 
   y = y - 6
-  local resetPos = ns.SmallButton(page, "Reset tracker position", 180, function()
+  local resetPos = ns.SmallButton(page, L["Reset tracker position"], 180, function()
     s.trackerPoint = nil
     ns.ApplyTrackerSettings()
   end)
   resetPos:SetPoint("TOPLEFT", 0, y)
-  local test = ns.SmallButton(page, "Test banner", 120, function() ns.Banner.Test() end)
+  local test = ns.SmallButton(page, L["Test banner"], 120, function() ns.Banner.Test() end)
   test:SetPoint("LEFT", resetPos, "RIGHT", 8, 0)
-  local resetChar = ns.SmallButton(page, "Reset character data", 180, function()
+  local resetChar = ns.SmallButton(page, L["Reset character data"], 180, function()
+    StaticPopupDialogs["AWS_RESET_CHAR"].text = L["Reset ALL Azeroth Walking Simulator data for this character?\n" ..
+      "(Totals, history, challenges and achievements. This cannot be undone.)"]
     StaticPopup_Show("AWS_RESET_CHAR")
   end)
   resetChar:SetPoint("LEFT", test, "RIGHT", 8, 0)
@@ -368,12 +403,10 @@ local function BuildSettings(page)
   help:SetPoint("TOPLEFT", 0, y)
   help:SetWidth(WIDTH - 50)
   help:SetJustifyH("LEFT")
-  help:SetText("Steps only count while you hold movement keys (or both mouse buttons) and really move: " ..
-    "not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. " ..
-    "Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair.\n" ..
-    "Commands: /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, /aws stats, " ..
-    "/aws challenges, /aws trophies, /aws social, /aws share, /aws route, /aws testbanner. " ..
-    "Right-click the tracker to open.")
+  help:SetText(L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] ..
+    "\n" .. L["Commands"] .. ": /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, " ..
+    "/aws stats, /aws challenges, /aws trophies, /aws social, /aws share, /aws route, /aws options, " ..
+    "/aws minimap. " .. L["Right-click the tracker to open."])
 
   function page:Refresh()
     for key, cb in pairs(checks) do cb:SetChecked(s[key]) end
@@ -422,12 +455,12 @@ local function CreateWindow()
   close:SetPoint("TOPRIGHT", -2, -2)
 
   local quick
-  quick = ns.SmallButton(f, "Quick Share", 100, function() ns.QuickShare.Open(quick) end)
+  quick = ns.SmallButton(f, L["Quick Share"], 100, function() ns.QuickShare.Open(quick) end)
   quick:SetPoint("RIGHT", close, "LEFT", -4, 0)
 
   f.pages, f.tabs = {}, {}
   for i, name in ipairs(TABS) do
-    local tab = ns.SmallButton(f, name, 98, function() f:SelectTab(i) end)
+    local tab = ns.SmallButton(f, L[name], 98, function() f:SelectTab(i) end)
     tab:SetSize(98, 22)
     tab:SetPoint("TOPLEFT", 14 + (i - 1) * 102, -40)
     f.tabs[i] = tab

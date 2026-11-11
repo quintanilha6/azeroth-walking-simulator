@@ -1,4 +1,5 @@
 local ADDON_NAME, ns = ...
+local L = ns.L
 
 -- Default settings (saved per account in AWSDB.settings)
 ns.DEFAULTS = {
@@ -99,6 +100,7 @@ local function InitDB()
   db.social.feed = db.social.feed or {}           -- activities and events
   db.social.completions = db.social.completions or {} -- [periodKey][id][guid] = true
   ns.db, ns.settings = db, db.settings
+  ns.ApplyLanguage(db.settings.language)
   ns.InitCharDB()
 end
 
@@ -417,7 +419,7 @@ function ns.Tick(dt)
         :format(ns.HoldingMoveInput() and "held" or "no", ns.state.posSource or "?", d.speed, d.yards,
           ns.state.dbgMoved or 0, ns.state.dbgPending or 0, ns.IdleSeconds(),
           ns.state.facingReadable and "readable" or "hidden",
-          GetCursorDelta and (ns.state.mouseDelta and "seen" or "none yet") or "unsupported",
+          GetCursorDelta and (ns.state.mouseDelta and "seen" or L["none yet"]) or "unsupported",
           tostring(reason or "counting")))
       d.t, d.yards, d.speed = 0, 0, 0
     end
@@ -536,9 +538,9 @@ driver:SetScript("OnEvent", function(self, event, arg1)
     ns.Options.Create()
     self:SetScript("OnUpdate", OnUpdate)
     if migrated then
-      ns.Print("Imported your Stride data. Welcome to Azeroth Walking Simulator!")
+      ns.Print(L["Imported your Stride data. Welcome to Azeroth Walking Simulator!"])
     end
-    ns.Print("Type /aws to open. Good luck on this week's challenges!")
+    ns.Print(L["Type /aws to open. Good luck on this week's challenges!"])
     C_Timer.After(3, function()
       ns.Achievements.Check(not ns.cdb.achInit) -- first run: award old progress quietly
       ns.cdb.achInit = true
@@ -564,17 +566,17 @@ local function PrintStats()
   local t, F = ns.cdb.total, ns.F
   local today = ns.GetDay(date("%Y-%m-%d"))
   local acct = ns.AccountTotals()
-  ns.Print(("Rank: %s"):format(ns.Achievements.RankName(ns.Achievements.RankIndex(t.steps))))
-  ns.Print(("Today: %s steps, %s"):format(F.Number(today.s), F.Distance(today.d)))
-  ns.Print(("This week: %s steps  |  This month: %s steps"):format(
+  ns.Print((L["Rank: %s"]):format(ns.Achievements.RankName(ns.Achievements.RankIndex(t.steps))))
+  ns.Print((L["Today: %s steps, %s"]):format(F.Number(today.s), F.Distance(today.d)))
+  ns.Print((L["This week: %s steps  |  This month: %s steps"]):format(
     F.Number(ns.Challenges.WeekSteps()), F.Number(ns.Challenges.MonthSteps())))
-  ns.Print(("This character: %s steps, %s, %d activities (since %s)"):format(
+  ns.Print((L["This character: %s steps, %s, %d activities (since %s)"]):format(
     F.Number(t.steps), F.Distance(t.distance), t.sessions, F.Day(ns.cdb.since)))
-  ns.Print(("Account (%d chars): %s steps, %s"):format(acct.chars, F.Number(acct.steps), F.Distance(acct.distance)))
+  ns.Print((L["Account (%d chars): %s steps, %s"]):format(acct.chars, F.Number(acct.steps), F.Distance(acct.distance)))
   local s = ns.cdb.current
   if s then
-    ns.Print(("Session: %s steps, %s, %s moving%s"):format(F.Number(s.steps), F.Distance(s.distance),
-      F.Time(s.moving), s.paused and " (paused)" or ""))
+    ns.Print((L["Session: %s steps, %s, %s moving%s"]):format(F.Number(s.steps), F.Distance(s.distance),
+      F.Time(s.moving), s.paused and L[" (paused)"] or ""))
   end
 end
 
@@ -586,7 +588,7 @@ local function Slash(msg)
   elseif cmd == "start" then
     local s = ns.cdb.current
     if s and s.paused then ns.ResumeSession()
-    elseif s then ns.Print("A session is already running.")
+    elseif s then ns.Print(L["A session is already running."])
     else ns.StartSession(false) end
   elseif cmd == "pause" then
     ns.PauseSession()
@@ -625,10 +627,10 @@ local function Slash(msg)
   elseif cmd == "debug" then
     ns.debug = not ns.debug
     ns.debugInfo = { t = 0, yards = 0, speed = 0 }
-    ns.Print("Debug readout " .. (ns.debug and "ON (once a second). Type /aws debug again to stop." or "OFF."))
+    ns.Print(L["Debug readout "] .. (ns.debug and L["ON (once a second). Type /aws debug again to stop."] or "OFF."))
   else
-    ns.Print("Commands: /aws (window), start, pause, resume, stop, auto on|off, tracker, stats, " ..
-      "challenges, trophies, social, share, route, testbanner, debug")
+    ns.Print(L["Commands: /aws (window), start, pause, resume, stop, auto on|off, tracker, stats, "] ..
+      L["challenges, trophies, social, share, route, testbanner, debug"])
   end
 end
 

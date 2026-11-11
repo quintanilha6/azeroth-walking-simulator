@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 local F = ns.F
 
 ns.BACKDROP = {
@@ -35,11 +36,11 @@ local STATUS_COLORS = {
 -- Returns status key and label for the tracker / window
 function ns.Status()
   local s, st = ns.cdb.current, ns.state
-  if st.reason then return "blocked", "Not counting: " .. (ns.REASON_TEXT[st.reason] or st.reason) end
-  if not s then return "off", "No session (today)" end
-  if s.paused then return "paused", "Paused" end
-  if st.moving then return "recording", "Recording" end
-  return "idle", "Standing still"
+  if st.reason then return "blocked", L["Not counting: "] .. (L[ns.REASON_TEXT[st.reason] or st.reason]) end
+  if not s then return "off", L["No session (today)"] end
+  if s.paused then return "paused", L["Paused"] end
+  if st.moving then return "recording", L["Recording"] end
+  return "idle", L["Standing still"]
 end
 
 function ns.StatusColor(key) return STATUS_COLORS[key] end
@@ -125,7 +126,7 @@ function ns.CreateTracker()
     if button == "RightButton" then ns.ToggleWindow() end
   end)
 
-  local startBtn = ns.SmallButton(f, "Start", 58, function()
+  local startBtn = ns.SmallButton(f, L["Start"], 58, function()
     local s = ns.cdb.current
     if not s then ns.StartSession(false)
     elseif s.paused then ns.ResumeSession()
@@ -133,21 +134,21 @@ function ns.CreateTracker()
   end)
   startBtn:SetPoint("BOTTOMLEFT", 8, 7)
 
-  local stopBtn = ns.SmallButton(f, "Finish", 58, function() ns.StopSession() end)
+  local stopBtn = ns.SmallButton(f, L["Finish"], 58, function() ns.StopSession() end)
   stopBtn:SetPoint("LEFT", startBtn, "RIGHT", 2, 0)
 
   local shareBtn
-  shareBtn = ns.SmallButton(f, "Share", 58, function() ns.QuickShare.Open(shareBtn) end)
+  shareBtn = ns.SmallButton(f, L["Share"], 58, function() ns.QuickShare.Open(shareBtn) end)
   shareBtn:SetPoint("LEFT", stopBtn, "RIGHT", 2, 0)
 
   -- Route card for the walk in progress, or the last activity (same as /aws route)
-  local routeBtn = ns.SmallButton(f, "Route", 58, function()
+  local routeBtn = ns.SmallButton(f, L["Route"], 58, function()
     local cur = ns.cdb.current
     ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
   end)
   routeBtn:SetPoint("LEFT", shareBtn, "RIGHT", 2, 0)
 
-  local openBtn = ns.SmallButton(f, "Stats", 58, function() ns.ToggleWindow() end)
+  local openBtn = ns.SmallButton(f, L["Stats"], 58, function() ns.ToggleWindow() end)
   openBtn:SetPoint("LEFT", routeBtn, "RIGHT", 2, 0)
 
   function f:Refresh()
@@ -159,11 +160,11 @@ function ns.CreateTracker()
     local stepCount, dist, moving
     if cur then
       stepCount, dist, moving = cur.steps, cur.distance, cur.moving
-      stepsLabel:SetText("steps this session")
+      stepsLabel:SetText(L["steps this session"])
     else
       local day = ns.GetDay(date("%Y-%m-%d"))
       stepCount, dist, moving = day.s, day.d, nil
-      stepsLabel:SetText("steps today")
+      stepsLabel:SetText(L["steps today"])
     end
     steps:SetText(F.Number(stepCount))
     if moving then
@@ -174,11 +175,12 @@ function ns.CreateTracker()
 
     local left = ns.Challenges.cache.weeklyLeft
     rankLine:SetText(ns.Achievements.RankColored(ns.Achievements.MyRank()) .. "  |cff888888" ..
-      (left > 0 and (left .. " weekly challenge" .. (left == 1 and "" or "s") .. " left") or "Weekly Champion!") .. "|r")
+      (left == 1 and L["1 weekly challenge left"] or left > 1 and (L["%d weekly challenges left"]):format(left)
+        or L["Weekly Champion!"]) .. "|r")
 
-    if not cur then startBtn:SetText("Start")
-    elseif cur.paused then startBtn:SetText("Resume")
-    else startBtn:SetText("Pause") end
+    if not cur then startBtn:SetText(L["Start"])
+    elseif cur.paused then startBtn:SetText(L["Resume"])
+    else startBtn:SetText(L["Pause"]) end
     stopBtn:SetEnabled(cur ~= nil)
   end
 
