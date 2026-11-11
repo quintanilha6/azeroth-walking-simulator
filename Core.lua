@@ -224,6 +224,8 @@ end
 -- fall back to speed (rule 1 still applies).
 ---------------------------------------------------------------------------
 local function Plain(v) return type(v) == "number" and not IsSecret(v) end
+-- shared with Routes.lua and the route card
+ns.IsSecret, ns.Plain = IsSecret, Plain
 
 -- Source 1: world coordinates in yards
 local function UnitPos()
@@ -288,8 +290,10 @@ local function MeasuredYards(speed, dt)
   return 0 -- wait a moment: the position can lag a frame behind
 end
 
--- Don't credit movement made while not counting (auto-run, mounted...)
-local function ResetAnchor() SetAnchor(ReadPosition()) end
+-- Don't credit movement made while not counting (auto-run, mounted...).
+-- Just forget the last position; it's read again once counting resumes, so
+-- nothing is looked up while you stand still or ride.
+local function ResetAnchor() SetAnchor(nil) end
 
 ---------------------------------------------------------------------------
 -- Rule 3 (only where the game hides your position, e.g. dungeons):

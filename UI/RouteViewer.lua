@@ -16,8 +16,8 @@ local MIN_STEP = 2                 -- pixels: skip route points closer than this
 local GREEN, WHITE = { 0.2, 0.9, 0.3 }, { 1, 1, 1 }
 local JUMP_COLOR = { 0.9, 0.9, 1.0 }
 
-local IsSecret = issecretvalue or function() return false end
-local function Plain(v) return type(v) == "number" and not IsSecret(v) end
+local Plain = ns.Plain
+local BLACK = { 0, 0, 0 }
 
 ---------------------------------------------------------------------------
 -- Line pools
@@ -288,6 +288,47 @@ end
 local card
 local view = {} -- mapID, zoom, cx, cy (center in 0..1 of the map)
 
+-- Draw every route part that toPixel can place. toPixel(seg) returns a
+-- function (a, b) -> x, y in pixels, or nil if that part can't be shown.
+-- Parts in a row are joined by dashed "jump" lines. Returns the skipped parts.
+local function DrawRoute(route, toPixel)
+  PoolReset(card.outline)
+  PoolReset(card.route)
+  PoolReset(card.jumps)
+  HideMarker(card.startMark)
+  HideMarker(card.endMark)
+
+  local layer = card.lineLayer
+  local firstPt, lastPt, prevEnd
+  local skipped = {}
+  for si, seg in ipairs(route.segs) do
+    local f = #seg.pts >= 2 and toPixel(seg)
+    if f then
+      local pts = seg.pts
+      local px, py = f(pts[1], pts[2])
+      if si == 1 then firstPt = { px, py } end
+      if prevEnd then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
+      for i = 3, #pts, 2 do
+        local x, y = f(pts[i], pts[i + 1])
+        -- skip points too close together on screen (keeps long routes fast)
+        if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= #pts - 1 then
+          Segment(card.outline, layer, px, py, x, y, 7, BLACK, 0.7)
+          Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
+          px, py = x, y
+        end
+      end
+      prevEnd = { px, py }
+      if si == #route.segs then lastPt = prevEnd end
+    else
+      prevEnd = nil -- not on this map: no jump line across the gap
+      skipped[#skipped + 1] = seg
+    end
+  end
+  if firstPt then ShowMarker(card.startMark, layer, firstPt[1], firstPt[2]) end
+  if lastPt then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
+  return skipped
+end
+
 local function Stat(parent, x, label)
   local l = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   l:SetPoint("TOPLEFT", x, -(70 + CH + 14))
@@ -360,42 +401,14 @@ local function Render()
   end
   for i = #pieces + 1, #card.explored do card.explored[i]:Hide() end
 
-  PoolReset(card.outline)
-  PoolReset(card.route)
-  PoolReset(card.jumps)
-  HideMarker(card.startMark)
-  HideMarker(card.endMark)
-
-  local layer = card.lineLayer
-  local firstPt, lastPt, prevEnd
-  local hidden = 0
-  for si, seg in ipairs(route.segs) do
+  local skipped = DrawRoute(route, function(seg)
     local f = SegMapper(seg, view.mapID)
-    if f then
-      local pts = seg.pts
-      local x0, y0 = f(pts[1], pts[2])
-      local px, py = x0 * mapW, y0 * mapH
-      if si == 1 then firstPt = { px, py } end
-      -- jump from the end of the previous part to the start of this one
-      if prevEnd then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
-      for i = 3, #pts, 2 do
-        local nx, ny = f(pts[i], pts[i + 1])
-        local x, y = nx * mapW, ny * mapH
-        if (x - px) ^ 2 + (y - py) ^ 2 >= MIN_STEP * MIN_STEP or i >= #pts - 1 then
-          Segment(card.outline, layer, px, py, x, y, 7, { 0, 0, 0 }, 0.7)
-          Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
-          px, py = x, y
-        end
-      end
-      prevEnd = { px, py }
-      if si == #route.segs then lastPt = { px, py } end
-    else
-      prevEnd = nil -- this part isn't on this map
-      hidden = hidden + 1
+    if not f then return nil end
+    return function(a, b)
+      local nx, ny = f(a, b)
+      return nx * mapW, ny * mapH
     end
-  end
-  if firstPt then ShowMarker(card.startMark, layer, firstPt[1], firstPt[2]) end
-  if lastPt then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
+  end)
 
   -- Breadcrumb: World > Kalimdor > Durotar
   local names, id = {}, view.mapID
@@ -405,9 +418,14 @@ local function Render()
     id = ParentOf(id)
   end
   card.mapName:SetText(table.concat(names, "  >  "))
-  card.hidden:SetText(hidden > 0 and ("%d part%s of this walk %s on another map. Right-click to zoom out."):format(
-    hidden, hidden == 1 and "" or "s", hidden == 1 and "is" or "are") or "")
-  card.upBtn:SetEnabled(ParentOf(view.mapID) ~= nil)
+  -- Only mention parts that a bigger map could actually show
+  local canGoUp = ParentOf(view.mapID) ~= nil
+  local others = 0
+  for _, seg in ipairs(skipped) do if seg.map then others = others + 1 end end
+  card.hidden:SetText((others > 0 and canGoUp) and
+    ("%d part%s of this walk %s on another map. Right-click to zoom out."):format(
+      others, others == 1 and "" or "s", others == 1 and "is" or "are") or "")
+  card.upBtn:SetEnabled(canGoUp)
 end
 
 -- Zoom so everything drawable on this map fits
@@ -640,33 +658,33 @@ local function DrawShapeOnly(route)
   card.content:SetSize(CW, CH)
   for _, t in ipairs(card.tiles) do t:Hide() end
   for _, t in ipairs(card.explored) do t:Hide() end
-  local minA, maxA, minB, maxB = ns.Routes.Bounds(route)
+
+  -- Coordinates only line up within one continent, so show the main one
+  local main
+  for _, seg in ipairs(route.segs) do
+    if not main or #seg.pts > #main.pts then main = seg end
+  end
+  local function Same(seg) return seg.inst == main.inst end
+  local minA, maxA, minB, maxB
+  for _, seg in ipairs(route.segs) do
+    if Same(seg) then
+      for i = 1, #seg.pts, 2 do
+        local a, b = seg.pts[i], seg.pts[i + 1]
+        minA, maxA = math.min(minA or a, a), math.max(maxA or a, a)
+        minB, maxB = math.min(minB or b, b), math.max(maxB or b, b)
+      end
+    end
+  end
   local spanA, spanB = math.max(maxA - minA, 1), math.max(maxB - minB, 1)
   local scale = math.min((CW - PAD * 2) / spanB, (CH - PAD * 2) / spanA)
   local offX, offY = (CW - spanB * scale) / 2, (CH - spanA * scale) / 2
-  local layer, prevEnd = card.lineLayer, nil
-  for si, seg in ipairs(route.segs) do
-    local pts = seg.pts
-    local px, py = offX + (maxB - pts[2]) * scale, offY + (maxA - pts[1]) * scale
-    if si == 1 then ShowMarker(card.startMark, layer, px, py) end
-    if prevEnd and seg.inst == prevEnd.inst then Dashed(card.jumps, layer, prevEnd[1], prevEnd[2], px, py) end
-    for i = 3, #pts, 2 do
-      local x, y = offX + (maxB - pts[i + 1]) * scale, offY + (maxA - pts[i]) * scale
-      Segment(card.outline, layer, px, py, x, y, 7, { 0, 0, 0 }, 0.7)
-      Segment(card.route, layer, px, py, x, y, 3.5, ns.ORANGE, 1)
-      px, py = x, y
-    end
-    prevEnd = { px, py, inst = seg.inst }
-  end
-  if prevEnd then ShowMarker(card.endMark, layer, prevEnd[1], prevEnd[2]) end
+  local function toXY(a, b) return offX + (maxB - b) * scale, offY + (maxA - a) * scale end
+
+  DrawRoute(route, function(seg) return Same(seg) and toXY or nil end)
   card.mapName:SetText("Route shape (map not available)")
 end
 
-function V.Open(s)
-  if not s then return ns.Print("No activity to show yet.") end
-  if not card then BuildCard() end
-  wipe(cache)
-  card.activity = s
+local function FillStats(s)
   local live = s == ns.cdb.current
   card.title:SetText(UnitName("player") .. (live and "  -  walking now" or ""))
   local zones = s.zones and #s.zones > 0 and table.concat(s.zones, ", ") or "Azeroth"
@@ -675,6 +693,46 @@ function V.Open(s)
   card.steps:SetText(F.Number(s.steps))
   card.time:SetText(F.Time(s.moving))
   card.pace:SetText(F.Pace(s.moving, s.distance))
+end
+
+-- While the card shows the walk in progress: stats every second, and the
+-- route redrawn every few seconds as it grows (not while you drag the map)
+local liveAcc, routeAcc = 0, 0
+local function LiveUpdate(_, elapsed)
+  local s = card.activity
+  if not s or s ~= ns.cdb.current then return end
+  liveAcc, routeAcc = liveAcc + elapsed, routeAcc + elapsed
+  if liveAcc >= 1 then
+    liveAcc = 0
+    FillStats(s)
+  end
+  if routeAcc >= 5 and not card.canvas.drag and ns.Routes.Has(s) then
+    routeAcc = 0
+    local n = s.route.n or 0
+    if n ~= card.drawnPoints then
+      card.drawnPoints = n
+      if card.interactive then Render() else V.Open(s) end
+    end
+  end
+end
+
+-- Stop a map drag if the card closes mid-drag
+local function OnCardHide()
+  card.canvas.drag = nil
+  card.canvas:SetScript("OnUpdate", nil)
+end
+
+function V.Open(s)
+  if not s then return ns.Print("No activity to show yet.") end
+  if not card then
+    BuildCard()
+    card:SetScript("OnUpdate", LiveUpdate)
+    card:SetScript("OnHide", OnCardHide)
+  end
+  wipe(cache)
+  card.activity = s
+  card.drawnPoints = s.route and s.route.n
+  FillStats(s)
 
   PoolReset(card.outline); PoolReset(card.route); PoolReset(card.jumps)
   HideMarker(card.startMark); HideMarker(card.endMark)

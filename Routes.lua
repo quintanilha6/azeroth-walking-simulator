@@ -16,8 +16,7 @@ local MAX_SEGMENTS = 60
 local SIMPLIFY_TOLERANCE = 2.5 -- yards; how much detail to drop on finish
 local KEEP_ROUTES = 30     -- only the newest activities keep their route
 
-local IsSecret = issecretvalue or function() return false end
-local function Plain(v) return type(v) == "number" and not IsSecret(v) end
+local Plain = ns.Plain
 
 local function Round(v) return math.floor(v * 10 + 0.5) / 10 end
 
@@ -35,7 +34,11 @@ function R.Record(s, a, b, inst)
   if not s or not Plain(a) or not Plain(b) then return end
   s.route = s.route or { segs = {}, n = 0 }
   local route = s.route
-  if (route.n or 0) >= MAX_POINTS then return end
+  -- Long walks: simplify what's recorded so far instead of stopping
+  if (route.n or 0) >= MAX_POINTS then
+    R.Compact(route)
+    if route.n >= MAX_POINTS * 0.8 then return end -- couldn't free enough room
+  end
 
   local segs = route.segs
   local seg = segs[#segs]
@@ -103,6 +106,16 @@ local function Simplify(pts, tol)
   return out
 end
 
+-- Simplify a route that's still being recorded, and recount its points
+function R.Compact(route)
+  local n = 0
+  for _, seg in ipairs(route.segs) do
+    seg.pts = Simplify(seg.pts, SIMPLIFY_TOLERANCE)
+    n = n + #seg.pts / 2
+  end
+  route.n = n
+end
+
 -- Called when an activity is saved to history
 function R.Finish(s)
   local route = s.route
@@ -123,8 +136,13 @@ function R.Trim(history)
   for i = KEEP_ROUTES + 1, #history do history[i].route = nil end
 end
 
+-- True if any part of the route has at least two points (a line to draw)
 function R.Has(s)
-  return s and s.route and s.route.segs and #s.route.segs > 0 and #s.route.segs[1].pts >= 4
+  if not (s and s.route and s.route.segs) then return false end
+  for _, seg in ipairs(s.route.segs) do
+    if #seg.pts >= 4 then return true end
+  end
+  return false
 end
 
 -- All points of a route as one bounding box (in a/b world coordinates)

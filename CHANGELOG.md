@@ -13,7 +13,8 @@ All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Vers
 - Distance, steps, moving time and pace on the card. Open it with the map icon on an activity in the Activities tab, or `/aws route` for your current or last walk.
 - The regular world map is left untouched, so the addon works alongside any map addon.
 - **Screenshot** button on the route card saves a clean picture to your Screenshots folder.
-- Routes are simplified when an activity is finished, and kept for the newest 30 activities, so saved data stays small.
+- Routes are simplified when an activity is finished, and kept for the newest 30 activities, so saved data stays small. Very long walks are simplified along the way instead of stopping the recording.
+- While the card shows the walk you're on, its stats update every second and the route redraws as it grows.
 
 ### Notes
 - Routes aren't recorded in dungeons, because the game hides your position there.
