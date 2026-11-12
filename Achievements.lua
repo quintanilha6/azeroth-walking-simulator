@@ -107,6 +107,142 @@ end
 
 local function Longest(c) local _, l = ns.Streaks(); return l end
 
+---------------------------------------------------------------------------
+-- Checks for the 2.7.0 trophies
+---------------------------------------------------------------------------
+local function DayTs(key) -- "YYYY-MM-DD" -> noon that day
+  local y, m, d = key:match("^(%d+)-(%d+)-(%d+)$")
+  if not y then return nil end
+  return time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
+end
+
+local function BestOf(c, field)
+  local best = 0
+  for _, s in Activities(c) do if (s[field] or 0) > best then best = s[field] end end
+  return best
+end
+
+local function BestNight(c)
+  local best = 0
+  for _, d in pairs(c.daily) do if (d.n or 0) > best then best = d.n end end
+  return best
+end
+
+local function MostKudos(c)
+  local best = 0
+  for _, s in ipairs(c.history) do if s.kudos and #s.kudos > best then best = #s.kudos end end
+  return best
+end
+
+-- Most activities of 1,000+ steps in one Monday-Sunday week
+local function BusiestWeek(c)
+  local perWeek, best = {}, 0
+  for _, s in Activities(c) do
+    if s.steps >= 1000 and s.start then
+      local key = ns.Challenges.WeekPeriod(s.start).key
+      perWeek[key] = (perWeek[key] or 0) + 1
+      if perWeek[key] > best then best = perWeek[key] end
+    end
+  end
+  return best
+end
+
+-- 10,000+ steps on a Saturday and on the Sunday right after it
+local function WeekendWarrior(c)
+  for key, d in pairs(c.daily) do
+    local ts = d.s >= 10000 and DayTs(key)
+    if ts and date("*t", ts).wday == 7 then
+      local sunday = c.daily[date("%Y-%m-%d", ts + 86400)]
+      if sunday and sunday.s >= 10000 then return 1 end
+    end
+  end
+  return 0
+end
+
+-- Longest run of Weekly Champion weeks in a row
+local function ChampionRun(c)
+  local best = 0
+  for key, t in pairs(c.completed) do
+    local monday = t.champion and key:match("^W(.+)$")
+    local ts = monday and DayTs(monday)
+    if ts then
+      local run = 1
+      while true do
+        ts = ts + 7 * 86400
+        local nextWeek = c.completed["W" .. date("%Y-%m-%d", ts)]
+        if not (nextWeek and nextWeek.champion) then break end
+        run = run + 1
+      end
+      if run > best then best = run end
+    end
+  end
+  return best
+end
+
+local function GoldCount(c)
+  local n = 0
+  for _, b in ipairs(c.badges) do
+    local ch = b.kind == "weekly" and ns.Challenges.ById(b.id)
+    if ch and ch.tier == "gold" then n = n + 1 end
+  end
+  return n
+end
+
+-- Both monthly challenges of one month
+local function MonthDouble(c)
+  for key, t in pairs(c.completed) do
+    if key:match("^M") then
+      local n = 0
+      for id in pairs(t) do if id ~= "champion" then n = n + 1 end end
+      if n >= 2 then return 1 end
+    end
+  end
+  return 0
+end
+
+local function WithActivity(c, test)
+  for _, s in Activities(c) do if test(s) then return 1 end end
+  return 0
+end
+
+-- Zones are saved by map ID: look up which are dungeons and which continent
+-- each is on. Cached until a new zone is walked in.
+local CAPITALS = {
+  Alliance = { 1453, 1455, 1457 }, -- Stormwind, Ironforge, Darnassus
+  Horde = { 1454, 1456, 1458 },    -- Orgrimmar, Thunder Bluff, Undercity
+}
+local zoneInfo = { size = -1 }
+local function ZoneInfo(c)
+  local size = ZoneCount(c)
+  if zoneInfo.size == size then return zoneInfo end
+  local dungeons, continents, nCont = 0, {}, 0
+  local ok = C_Map and C_Map.GetMapInfo and Enum and Enum.UIMapType
+  for id in pairs(c.zones) do
+    local info = ok and type(id) == "number" and C_Map.GetMapInfo(id)
+    if info then
+      if info.mapType == Enum.UIMapType.Dungeon then dungeons = dungeons + 1 end
+      local p = info
+      for _ = 1, 6 do
+        if not p or p.mapType == Enum.UIMapType.Continent then break end
+        p = p.parentMapID and p.parentMapID ~= 0 and C_Map.GetMapInfo(p.parentMapID)
+      end
+      if p and p.mapType == Enum.UIMapType.Continent and not continents[p.mapID] then
+        continents[p.mapID] = true
+        nCont = nCont + 1
+      end
+    end
+  end
+  zoneInfo = { size = size, dungeons = dungeons, continents = nCont }
+  return zoneInfo
+end
+
+local function CapitalsVisited(c)
+  local list = CAPITALS[UnitFactionGroup and UnitFactionGroup("player") or ""] or {}
+  local n = 0
+  for _, id in ipairs(list) do if c.zones[id] then n = n + 1 end end
+  return n
+end
+
 local function Ach(id, name, desc, icon, check, fmt)
   return { id = id, name = name, desc = desc, icon = "Interface\\Icons\\" .. icon, check = check, fmt = fmt }
 end
@@ -162,7 +298,55 @@ A.LIST = {
     function(c) return c.kudosReceived, 25 end),
   Ach("toppack", "Top of the Pack", "Lead the weekly leaderboard with 3+ friends on it", "Ability_Warrior_BattleShout",
     function() return ns.Social.IsWeekLeader() and 1 or 0, 1 end),
+
+  -- 2.7.0 (append only: see the note below)
+  Ach("day50k", "Iron Legs", "Walk 50,000 steps in one day", "Ability_Warrior_Charge",
+    function(c) return BestDay(c), 50000 end),
+  Ach("ultra", "Ultramarathon", "Cover 50 km in one activity", "Spell_Nature_SpiritWolf",
+    function(c) return BestDistance(c), 50000 * M_TO_YD end, "dist"),
+  Ach("endurance", "Endurance", "Move for 2 hours in one activity", "Spell_Holy_WordFortitude",
+    function(c) return BestOf(c, "moving"), 7200 end, "time"),
+  Ach("busyweek", "Busy Week", "Finish 7 activities (1,000+ steps each) in one week", "Spell_Nature_TimeStop",
+    function(c) return BusiestWeek(c), 7 end),
+  Ach("weekend", "Weekend Warrior", "Walk 10,000+ steps on both Saturday and Sunday of one weekend",
+    "Ability_Warrior_WarCry", function(c) return WeekendWarrior(c), 1 end),
+  Ach("champ4", "Champion Streak", "Be Weekly Champion 4 weeks in a row", "INV_Misc_Head_Dragon_Black",
+    function(c) return ChampionRun(c), 4 end),
+  Ach("gold10", "Gold Rush", "Complete 10 Gold weekly challenges", "INV_Misc_Coin_02",
+    function(c) return GoldCount(c), 10 end),
+  Ach("monthboth", "Month Champion", "Complete both monthly challenges in the same month", "Spell_Holy_SealOfWisdom",
+    function(c) return MonthDouble(c), 1 end),
+  Ach("dungeons5", "Dungeon Crawler", "Walk in 5 different dungeons", "INV_Misc_Key_03",
+    function(c) return ZoneInfo(c).dungeons, 5 end),
+  Ach("capitals", "Capital Tour", "Walk in all three capital cities of your faction", "INV_Misc_Spyglass_01",
+    function(c) return CapitalsVisited(c), 3 end),
+  Ach("twoworlds", "Two Worlds", "Walk on both Kalimdor and the Eastern Kingdoms", "Spell_Arcane_Blink",
+    function(c) return ZoneInfo(c).continents, 2 end),
+  Ach("fanclub", "Fan Club", "Get 5 kudos on one activity", "Spell_Holy_FlashHeal",
+    function(c) return MostKudos(c), 5 end),
+  Ach("cheer50", "Super Fan", "Give 50 kudos to friends", "Spell_Holy_PrayerOfHealing",
+    function(c) return c.kudosGiven, 50 end),
+  Ach("buddies", "Walking Buddies", "Finish an activity of 2,000+ steps while in a party", "Spell_Holy_PrayerOfFortitude",
+    function(c)
+      for _, s in ipairs(c.history) do if s.grouped and s.steps >= 2000 then return 1, 1 end end
+      return 0, 1
+    end),
+  Ach("levelup", "Leveling on Foot", "Gain a character level during an activity", "Spell_Nature_EnchantArmor",
+    function(c) return WithActivity(c, function(s) return s.levelUp end), 1 end),
+  Ach("nightwalk", "Night Walker", "Walk 5,000 steps between midnight and 6 am in one night", "Spell_Nature_StarFall",
+    function(c) return BestNight(c), 5000 end),
 }
+
+-- Leveling on Foot: remember a level gained while an activity is running
+local levelWatch = CreateFrame("Frame")
+levelWatch:RegisterEvent("PLAYER_LEVEL_UP")
+levelWatch:SetScript("OnEvent", function()
+  local s = ns.cdb and ns.cdb.current
+  if s and not s.paused then
+    s.levelUp = true
+    A.Check()
+  end
+end)
 
 -- NOTE: A.LIST is append-only. Its order is the bit order of A.Mask(), which
 -- friends receive, so reordering or removing entries would show them the
@@ -172,21 +356,26 @@ local BY_ID = {}
 for _, a in ipairs(A.LIST) do BY_ID[a.id] = a end
 function A.ById(id) return BY_ID[id] end
 
--- Earned achievements as a hex bitmask (bit i-1 = A.LIST[i]), for the stats message
+-- Earned achievements as hex bitmasks for the stats message, 24 per part
+-- (part 1 = A.LIST[1..24], field 29, read by 2.6.0+; part 2 = A.LIST[25..48],
+-- field 30, 2.7.0+). 24 bits keep each part inside what %x can format.
+local PART = 24
 function A.Mask(earned)
   earned = earned or ns.cdb.achievements
-  local n = 0
+  local parts = { 0, 0 }
   for i, a in ipairs(A.LIST) do
-    if earned[a.id] then n = n + 2 ^ (i - 1) end
+    local p = math.floor((i - 1) / PART) + 1
+    if earned[a.id] and parts[p] then parts[p] = parts[p] + 2 ^ ((i - 1) % PART) end
   end
-  return ("%x"):format(n)
+  return ("%x"):format(parts[1]), ("%x"):format(parts[2])
 end
 
--- Is A.LIST[i] set in a mask from A.Mask()? (nil mask = unknown)
-function A.MaskHas(mask, i)
+-- Is A.LIST[i] set? mask1/mask2 are the two parts (nil = unknown)
+function A.MaskHas(mask1, mask2, i)
+  local mask = i <= PART and mask1 or mask2
   local n = mask and tonumber(mask, 16)
   if not n then return false end
-  return math.floor(n / 2 ^ (i - 1)) % 2 == 1
+  return math.floor(n / 2 ^ ((i - 1) % PART)) % 2 == 1
 end
 
 function A.Count()
@@ -198,6 +387,7 @@ end
 function A.ProgressText(a, value, goal)
   local v = math.min(value or 0, goal)
   if a.fmt == "dist" then return F.Distance(v) .. " / " .. F.Distance(goal) end
+  if a.fmt == "time" then return F.Time(v) .. " / " .. F.Time(goal) end
   return F.Number(v) .. " / " .. F.Number(goal)
 end
 
@@ -222,12 +412,19 @@ function A.Check(silent)
     ns.Social.Announce("r", tostring(rank), "")
   end
 
-  for _, a in ipairs(A.LIST) do
+  -- Trophies added in an update that you already qualify for are awarded
+  -- quietly, with one toast, instead of a banner each
+  local known = c.achListSize or 24 -- how many trophies existed at the last check
+  local caught = 0
+
+  for i, a in ipairs(A.LIST) do
     if not c.achievements[a.id] then
       local value, goal = a.check(c)
       if (value or 0) >= goal then
         c.achievements[a.id] = time()
-        if not silent then
+        if not silent and i > known then
+          caught = caught + 1
+        elseif not silent then
           ns.Banner.Show({ kicker = L["ACHIEVEMENT EARNED"], title = L[a.name], sub = L[a.desc], icon = a.icon,
             color = ns.GOLD, open = { tab = ns.TROPHIES_TAB, ach = a.id } })
           ns.Print((L["Achievement earned: |cffffd100%s|r - %s"]):format(L[a.name], L[a.desc]))
@@ -235,5 +432,14 @@ function A.Check(silent)
         end
       end
     end
+  end
+  c.achListSize = #A.LIST
+
+  if caught > 0 then
+    local text = caught == 1 and L["You already earned a new trophy!"]
+      or (L["You already earned %d new trophies!"]):format(caught)
+    ns.Print(text)
+    ns.Banner.Toast({ title = L["New trophies"], text = text, icon = "Interface\\Icons\\INV_Misc_Coin_01",
+      open = { tab = ns.TROPHIES_TAB } })
   end
 end

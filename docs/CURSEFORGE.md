@@ -70,7 +70,7 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 - **Monthly challenges**, including the 250,000-step Quarter Million.
 - Everyone gets the **same challenges** each period, so you race your friends on equal terms.
 - **Nine walker ranks**, from Novice Wanderer to Walking Simulator Champion.
-- **24 achievements** for step milestones, streaks, marathon distances, exploring zones and more.
+- **40 achievements** for step milestones, streaks, marathon distances, exploring zones and dungeons, night walks, weekends and more.
 - **Banners** celebrate your wins in the middle of the screen.
 
 ### Social

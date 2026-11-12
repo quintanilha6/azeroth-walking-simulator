@@ -4,8 +4,8 @@ local F = ns.F
 
 -- A friend's profile: rank, stats, this week's challenges and their trophies.
 -- Opened from the leaderboard, the feed and "Friend news" toasts.
-local W, H = 372, 470
-local ICON, GAP, PER_ROW = 38, 6, 6
+local W, H = 372, 500
+local ICON, GAP, PER_ROW = 32, 6, 8
 
 local card, guid
 
@@ -195,7 +195,7 @@ local function Create()
     -- achievements: from the bitmask (2.6.0+), or just the count from older versions
     local mask = e.achMask
     for i, b in ipairs(self.ach) do
-      local earned = A.MaskHas(mask, i)
+      local earned = A.MaskHas(mask, e.achMask2, i)
       b.earned = earned
       b.icon:SetDesaturated(not earned)
       b.icon:SetAlpha(earned and 1 or 0.3)

@@ -11,7 +11,7 @@
 - **Step tracking on foot only.** Nothing counts while you're mounted, on a flight path, in a vehicle, swimming, dead, on auto-run or following someone.
 - **Activities like Strava.** Start, pause and finish sessions, or let auto mode record from login to logout. Each activity saves steps, distance, moving time, pace and zones.
 - **Weekly challenges** (Bronze, Silver, Gold) and **monthly challenges**, the same for everyone. Finish all three weekly ones to become **Weekly Champion**.
-- **Walker ranks**, from Novice Wanderer to Walking Simulator Champion, plus **24 achievements**.
+- **Walker ranks**, from Novice Wanderer to Walking Simulator Champion, plus **40 achievements**.
 - **Banners** when you complete something, and toasts when your friends do.
 - **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time. Shows the top 50 plus your own place, with name search and an "Online now" filter.
 - **Social feed** with Kudos, overtake alerts and a weekly recap.

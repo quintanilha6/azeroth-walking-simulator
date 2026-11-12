@@ -559,6 +559,8 @@ function ns.Tick(dt)
       c.daily[key] = day
     end
     day.s, day.d = day.s + steps, day.d + yards
+    -- steps taken between 00:00 and 05:59 (Night Walker trophy)
+    if tonumber(date("%H")) < 6 then day.n = (day.n or 0) + steps end
 
     local zone = ns.state.zone
     -- explored zones are kept by map ID, so they're the same in every game language
@@ -572,6 +574,10 @@ function ns.Tick(dt)
     if active then
       s.steps, s.distance, s.moving = s.steps + steps, s.distance + yards, s.moving + dt
       if zone ~= "" then AddZone(s, zone) end
+      -- walked while in a party or raid (Walking Buddies trophy)
+      if not s.grouped and ((IsInGroup and IsInGroup()) or ((GetNumGroupMembers and GetNumGroupMembers()) or 0) > 0) then
+        s.grouped = true
+      end
       local st = ns.state
       if st.posA then ns.Routes.Record(s, st.posA, st.posB, st.posInst, speed) end
     end

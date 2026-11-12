@@ -309,7 +309,7 @@ end
 -- H  hello, "send me your stats"
 -- S  stats: class;level;today;todayDist;week;weekDist;month;monthDist;all;allDist;
 --           sessions;streak;active;sessionSteps;since;rank;achievements;weekDone;weekKey;badges;
---           rate;features;dayKey;monthKey;inGroup;achievementMask (hex, see Achievements.Mask)
+--           rate;features;dayKey;monthKey;inGroup;achievementMask1;achievementMask2 (hex, see Achievements.Mask)
 -- A  activity: id;steps;dist;moving;elapsed;finish;zone,zone
 -- K  kudos for activity id (sent only to its owner)
 -- C  event: kind(c=challenge, w=weekly champion, a=achievement, r=rank);id;periodKey
@@ -338,7 +338,7 @@ local function StatsMsg()
     ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
     (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0, -- steps/s x10
     S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"), InGroup() and 1 or 0,
-    ns.Achievements.Mask()) -- which achievements (2.6.0+), so friends can see your trophies
+    ns.Achievements.Mask()) -- which achievements: field 29 = first 24 (2.6.0+), field 30 = the rest (2.7.0+)
 end
 
 local function ActivityMsg(a)
@@ -691,8 +691,8 @@ local function HandleStats(guid, p)
   e.features = N(p[25]) -- 0 = a version before 2.4.1
   e.inGroup = p[28] == "1"
   -- achievement bitmask (nil from versions before 2.6.0: count only)
-  local mask = p[29]
-  e.achMask = (mask and mask:match("^%x%x?%x?%x?%x?%x?%x?%x?$")) and mask or nil
+  local function Hex(s) return (s and s:match("^%x%x?%x?%x?%x?%x?%x?%x?$")) and s or nil end
+  e.achMask, e.achMask2 = Hex(p[29]), Hex(p[30])
   -- the sender's own day and month (older versions: the time it arrived)
   e.todayKey = (p[26] and p[26] ~= "") and Clean(p[26], 12) or date("%Y-%m-%d")
   e.monthKey = (p[27] and p[27] ~= "") and Clean(p[27], 12) or ("M" .. date("%Y-%m"))

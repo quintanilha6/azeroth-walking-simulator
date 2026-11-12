@@ -2,6 +2,29 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-11-12
+
+### Added
+- **16 new trophies (40 in total):**
+  - **Iron Legs:** 50,000 steps in one day
+  - **Ultramarathon:** 50 km in one activity
+  - **Endurance:** 2 hours of moving time in one activity
+  - **Busy Week:** 7 activities (1,000+ steps each) in one week
+  - **Weekend Warrior:** 10,000+ steps on both Saturday and Sunday
+  - **Champion Streak:** Weekly Champion 4 weeks in a row
+  - **Gold Rush:** 10 Gold weekly challenges
+  - **Month Champion:** both monthly challenges in the same month
+  - **Dungeon Crawler:** walk in 5 different dungeons
+  - **Capital Tour:** walk in all three capitals of your faction
+  - **Two Worlds:** walk on Kalimdor and the Eastern Kingdoms
+  - **Fan Club:** 5 kudos on one activity
+  - **Super Fan:** give 50 kudos
+  - **Walking Buddies:** a 2,000+ step activity while in a party
+  - **Leveling on Foot:** gain a level during an activity
+  - **Night Walker:** 5,000 steps between midnight and 6 am in one night
+- New trophies you already qualify for are awarded on your first login, with one toast instead of a banner each. Everything you'd already earned stays.
+- Friends' profiles show all 40 trophies. Friends still on 2.6.x show the first 24.
+
 ## [2.6.1] - 2026-11-12
 
 ### Changed
