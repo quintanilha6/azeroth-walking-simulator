@@ -2,6 +2,12 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.6.1] - 2026-11-12
+
+### Changed
+- **Tracker buttons in two columns** (Pause / Finish, Share / Route, Social / Stats), with a new **Social** button that opens the leaderboard.
+- **Narrower tracker:** 240 wide instead of 312.
+
 ## [2.6.0] - 2026-11-12
 
 ### Added

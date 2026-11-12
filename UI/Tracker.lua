@@ -182,7 +182,7 @@ end
 function ns.CreateTracker()
   if ns.Tracker then return end
   local f = ns.CreatePanel("AWSTracker")
-  f:SetSize(312, 84)
+  f:SetSize(240, 84)
   f:SetFrameStrata("MEDIUM")
   f:SetClampedToScreen(true)
   f:SetMovable(true)
@@ -228,7 +228,7 @@ function ns.CreateTracker()
 
   local rankLine = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   rankLine:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, -3)
-  rankLine:SetWidth(210)
+  rankLine:SetWidth(220)
   rankLine:SetJustifyH("LEFT")
   rankLine:SetWordWrap(false)
 
@@ -251,13 +251,13 @@ function ns.CreateTracker()
   -- is over the tracker; with no session or a paused one it always shows, so
   -- Start / Resume are never hidden.
   local bar = ns.CreatePanel(nil, f)
-  bar:SetSize(312, 32)
+  bar:SetSize(240, 78)
   bar:EnableMouse(true)
   bar:Hide()
   local function PlaceBar()
     bar:ClearAllPoints()
     local bottom = f:GetBottom()
-    if bottom and bottom * f:GetEffectiveScale() < 60 * UIParent:GetEffectiveScale() then
+    if bottom and bottom * f:GetEffectiveScale() < 90 * UIParent:GetEffectiveScale() then
       bar:SetPoint("BOTTOM", f, "TOP", 0, -3)
     else
       bar:SetPoint("TOP", f, "BOTTOM", 0, 3)
@@ -274,30 +274,36 @@ function ns.CreateTracker()
     elseif not want and bar:IsShown() then bar:Hide() end
   end)
 
-  local startBtn = ns.SmallButton(bar, L["Start"], 58, function()
+  -- two columns: Pause/Finish, Share/Route, Social/Stats
+  local BTN_W = 109
+  local startBtn = ns.SmallButton(bar, L["Start"], BTN_W, function()
     local s = ns.cdb.current
     if not s then ns.StartSession(false)
     elseif s.paused then ns.ResumeSession()
     else ns.PauseSession() end
   end)
-  startBtn:SetPoint("LEFT", 8, 0)
+  startBtn:SetPoint("TOPLEFT", 8, -8)
 
-  local stopBtn = ns.SmallButton(bar, L["Finish"], 58, function() ns.StopSession() end)
-  stopBtn:SetPoint("LEFT", startBtn, "RIGHT", 2, 0)
+  local stopBtn = ns.SmallButton(bar, L["Finish"], BTN_W, function() ns.StopSession() end)
+  stopBtn:SetPoint("LEFT", startBtn, "RIGHT", 6, 0)
 
   local shareBtn
-  shareBtn = ns.SmallButton(bar, L["Share"], 58, function() ns.QuickShare.Open(shareBtn) end)
-  shareBtn:SetPoint("LEFT", stopBtn, "RIGHT", 2, 0)
+  shareBtn = ns.SmallButton(bar, L["Share"], BTN_W, function() ns.QuickShare.Open(shareBtn) end)
+  shareBtn:SetPoint("TOPLEFT", startBtn, "BOTTOMLEFT", 0, -2)
 
   -- Route card for the walk in progress, or the last activity (same as /aws route)
-  local routeBtn = ns.SmallButton(bar, L["Route"], 58, function()
+  local routeBtn = ns.SmallButton(bar, L["Route"], BTN_W, function()
     local cur = ns.cdb.current
     ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
   end)
-  routeBtn:SetPoint("LEFT", shareBtn, "RIGHT", 2, 0)
+  routeBtn:SetPoint("LEFT", shareBtn, "RIGHT", 6, 0)
 
-  local openBtn = ns.SmallButton(bar, L["Stats"], 58, function() ns.ToggleWindow() end)
-  openBtn:SetPoint("LEFT", routeBtn, "RIGHT", 2, 0)
+  -- Leaderboard (the Social tab), like /aws social
+  local socialBtn = ns.SmallButton(bar, L["Social"], BTN_W, function() ns.ToggleWindow(ns.SOCIAL_TAB) end)
+  socialBtn:SetPoint("TOPLEFT", shareBtn, "BOTTOMLEFT", 0, -2)
+
+  local openBtn = ns.SmallButton(bar, L["Stats"], BTN_W, function() ns.ToggleWindow() end)
+  openBtn:SetPoint("LEFT", socialBtn, "RIGHT", 6, 0)
 
   function f:Refresh()
     local cur = ns.cdb.current
