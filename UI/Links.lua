@@ -3,15 +3,18 @@ local L = ns.L
 
 -- Clickable chat links for challenges, trophies, ranks and players, like
 -- item links: clicking one opens it in the window, where it flashes.
---   |Haws:c:<challengeId>|h[Long Haul]|h      challenge
---   |Haws:a:<achievementId>|h[Marathon]|h     trophy
---   |Haws:r:<rank>|h[Footpad]|h               walker rank
---   |Haws:w:champion|h[Weekly Champion]|h     weekly champion
---   |Haws:p:<guid>|h<name>|h                  player (opens their profile)
+--   |Hgarrmission:aws:c:<challengeId>|h[Long Haul]|h   challenge
+--   |Hgarrmission:aws:a:<achievementId>|h[Marathon]|h  trophy
+--   |Hgarrmission:aws:r:<rank>|h[Footpad]|h            walker rank
+--   |Hgarrmission:aws:w:champion|h[Weekly Champion]|h  weekly champion
+--   |Hgarrmission:aws:p:<guid>|h<name>|h               player (opens their profile)
+-- "garrmission" is a link type the game already accepts and ignores in
+-- Classic, so the default click code leaves it alone; we only hook
+-- SetItemRef (no globals replaced), the same way WeakAuras does.
 
 -- label is shown as-is (it may carry its own color codes)
 function ns.Link(kind, id, label)
-  return ("|Haws:%s:%s|h%s|h"):format(kind, tostring(id), label)
+  return ("|Hgarrmission:aws:%s:%s|h%s|h"):format(kind, tostring(id), label)
 end
 
 function ns.ChallengeLink(ch)
@@ -35,16 +38,11 @@ local function Open(kind, id)
   elseif kind == "p" then ns.ShowUnlocked({ profile = id }) end
 end
 
--- The chat frame hands every clicked link to SetItemRef. Ours are handled
--- here and never reach the default code (which doesn't know them).
-local origSetItemRef = SetItemRef
-if origSetItemRef then
-  SetItemRef = function(link, text, button, chatFrame, ...)
-    local kind, id = (link or ""):match("^aws:(%a):(.+)$")
-    if kind then
-      Open(kind, id)
-      return
-    end
-    return origSetItemRef(link, text, button, chatFrame, ...)
-  end
+-- The chat frame hands every clicked link to SetItemRef; we look at ours
+-- after the game is done with it
+if SetItemRef then
+  hooksecurefunc("SetItemRef", function(link)
+    local kind, id = (link or ""):match("^garrmission:aws:(%a):(.+)$")
+    if kind then Open(kind, id) end
+  end)
 end

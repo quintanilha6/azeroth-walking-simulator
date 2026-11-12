@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.3] - 2026-11-12
+
+### Changed
+- Chat links now use the same safe method as other popular addons (a hook instead of replacing one of the game's link functions), so they can't interfere with item or player links.
+
 ## [2.7.2] - 2026-11-12
 
 ### Added
