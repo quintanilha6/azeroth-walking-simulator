@@ -2,7 +2,7 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.6.0] - Unreleased
+## [2.6.0] - 2026-11-12
 
 ### Added
 - **Clickable banners.** Click a banner to open what you just unlocked: the achievement, rank or challenge flashes so you can see it. Right-click just closes it. Toasts work too: friend news opens that friend's profile, overtakes the leaderboard, kudos your activities.
