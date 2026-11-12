@@ -452,6 +452,7 @@ activityWatch:SetScript("OnEvent", MarkActive)
 ---------------------------------------------------------------------------
 local uiAcc, winAcc, checkAcc = 0, 0, 0
 local lastCheck
+local hourAt, hour = -100, 12 -- cached clock hour (Night Walker)
 
 local function AddZone(s, zone)
   for _, z in ipairs(s.zones) do
@@ -559,8 +560,11 @@ function ns.Tick(dt)
       c.daily[key] = day
     end
     day.s, day.d = day.s + steps, day.d + yards
-    -- steps taken between 00:00 and 05:59 (Night Walker trophy)
-    if tonumber(date("%H")) < 6 then day.n = (day.n or 0) + steps end
+    -- steps taken between 00:00 and 05:59 (Night Walker trophy); the hour is
+    -- read every 30 s, not every frame
+    local now = GetTime()
+    if now - hourAt > 30 then hourAt, hour = now, tonumber(date("%H")) end
+    if hour < 6 then day.n = (day.n or 0) + steps end
 
     local zone = ns.state.zone
     -- explored zones are kept by map ID, so they're the same in every game language
@@ -597,6 +601,8 @@ function ns.Tick(dt)
   uiAcc, winAcc, checkAcc = uiAcc + dt, winAcc + dt, checkAcc + dt
   if checkAcc >= 5 then
     checkAcc = 0
+    -- remember when the session was last running, for the end time after a crash
+    if s then s.alive = time() end
     -- challenges and achievements only move when you walk (or a new day starts)
     local fp = math.floor(c.total.steps) .. ":" .. date("%Y-%m-%d")
     if fp ~= lastCheck then
@@ -711,19 +717,29 @@ driver:RegisterEvent("PLAYER_LOGIN")
 driver:RegisterEvent("PLAYER_LOGOUT")
 driver:RegisterEvent("PLAYER_ENTERING_WORLD")
 driver:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-driver:SetScript("OnEvent", function(self, event, arg1)
+local loginHandled = false
+driver:SetScript("OnEvent", function(self, event, arg1, arg2)
   if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
     InitDB()
     self:UnregisterEvent("ADDON_LOADED")
+  elseif event == "PLAYER_ENTERING_WORLD" and not loginHandled then
+    -- The first PLAYER_ENTERING_WORLD says whether this is a real login
+    -- (arg1 = isInitialLogin) or a /reload (arg2 = isReloadingUi), which
+    -- decides if the auto session carries on. Loading screens later
+    -- (dungeons, raids, boats) don't come back here.
+    loginHandled = true
+    UpdateZone()
+    ns.OnLogin(arg1, arg2)
+    ns.RefreshUI()
+    -- start counting only now, so the old session gets no time from the loading screen
+    self:SetScript("OnUpdate", OnUpdate)
   elseif event == "PLAYER_LOGIN" then
     ns.charKey = ns.CharKey()
     UpdateZone()
     ns.SyncAccount()
-    ns.OnLogin()
     ns.CreateTracker()
     ns.MinimapButton.Create()
     ns.Options.Create()
-    self:SetScript("OnUpdate", OnUpdate)
     if migrated then
       ns.Print(L["Imported your Stride data. Welcome to Azeroth Walking Simulator!"])
     end

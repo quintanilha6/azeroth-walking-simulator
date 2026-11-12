@@ -2,7 +2,13 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [2.7.0] - 2026-11-12
+## [2.7.1] - 2026-11-12
+
+### Fixed
+- **Auto mode now really ends your session when you log out.** Logging out (to character select or closing WoW) saves the session, and your next login starts a new one, even if you're back within seconds. A `/reload`, dungeons, raids and other loading screens still continue the same session.
+  - With Auto mode on this also applies to sessions you started with the Start button. With Auto mode off, sessions keep running until you press Finish.
+  - A chat line tells you when your last session was saved and a new one started.
+- After a crash or disconnect, the saved session now ends at the last moment it was running instead of at its start time.
 
 ### Added
 - **16 new trophies (40 in total):**

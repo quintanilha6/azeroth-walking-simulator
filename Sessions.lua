@@ -43,7 +43,7 @@ function ns.StopSession(endTime, quiet)
   end
   c.current = nil
   s.finish = endTime or time()
-  s.paused, s.lastSeen = nil, nil
+  s.paused, s.lastSeen, s.alive = nil, nil, nil
 
   if s.steps < 1 then
     if not quiet then ns.Print(L["Session ended with no steps - not saved."]) end
@@ -95,18 +95,38 @@ function ns.ResetCharacter()
 end
 
 ---------------------------------------------------------------------------
--- Login / logout. PLAYER_LOGOUT also fires on /reload, so an auto session
--- is only closed if the next login comes more than RESUME_WINDOW later.
--- Manual sessions stay open until you stop them.
+-- Login / logout. An auto session ends when you log out and a new one starts
+-- when you log in; a /reload carries on the same one. PLAYER_LOGOUT fires for
+-- both, so the next login tells them apart: isInitialLogin / isReloadingUi
+-- from PLAYER_ENTERING_WORLD, or (clients without them) whether you were away
+-- longer than RESUME_WINDOW. With Auto mode on this applies to every
+-- session, including ones started with the Start button; with Auto mode off,
+-- sessions stay open until you finish them.
 ---------------------------------------------------------------------------
-function ns.OnLogin()
+function ns.OnLogin(isInitialLogin, isReloadingUi)
   local s = ns.cdb.current
-  if s and s.auto then
-    local last = s.lastSeen or s.start
-    if time() - last > ns.RESUME_WINDOW then
+  if s and (s.auto or ns.settings.autoMode) then
+    -- lastSeen is set at logout; after a crash it's missing, so fall back to
+    -- the last time the session was seen running (alive, every 30 s)
+    local last = s.lastSeen or s.alive or s.start
+    local newLogin
+    if isInitialLogin ~= nil or isReloadingUi ~= nil then
+      newLogin = isInitialLogin and not isReloadingUi
+    else
+      newLogin = time() - last > ns.RESUME_WINDOW
+    end
+    if newLogin then
       ns.StopSession(last, true)
+      if s.steps >= 1 then
+        ns.Print((L["Your last session was saved (%s steps). A new one has started."]):format(F.Number(s.steps)))
+      end
     end
   end
+  -- what the last login looked like (/dump AWSCharDB.lastLogin to check)
+  ns.cdb.lastLogin = {
+    initial = isInitialLogin, reload = isReloadingUi, had = s and (s.auto and "auto" or "manual") or "none",
+    kept = (s ~= nil and ns.cdb.current == s), at = date("%H:%M:%S"),
+  }
   if ns.cdb.current then
     ns.cdb.current.lastSeen = nil
   elseif ns.settings.autoMode then

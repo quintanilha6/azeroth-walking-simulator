@@ -413,4 +413,6 @@ L["You already earned a new trophy!"] = "¡Ya has ganado un trofeo nuevo!"
 L["You already earned %d new trophies!"] = "¡Ya has ganado %d trofeos nuevos!"
 L["New trophies"] = "Trofeos nuevos"
 
+L["Your last session was saved (%s steps). A new one has started."] = "Tu última sesión se ha guardado (%s pasos). Ha empezado una nueva."
+
 ns.RegisterLocale("esES", L)
