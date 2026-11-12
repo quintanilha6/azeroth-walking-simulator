@@ -214,6 +214,7 @@ local function BindingHeld(binding)
 end
 
 function ns.HoldingMoveInput()
+  if ns.StickHeld() then return true end -- controller: movement stick pushed
   if Flag(IsMouseButtonDown, "LeftButton") and Flag(IsMouseButtonDown, "RightButton") then return true end
   if not IsKeyDown or not GetBindingKey then return true end -- can't check on this client: don't block
   for _, name in ipairs(MOVE_BINDINGS) do
@@ -232,6 +233,70 @@ end
 local function Plain(v) return type(v) == "number" and not IsSecret(v) end
 -- shared with Routes.lua and the route card
 ns.IsSecret, ns.Plain = IsSecret, Plain
+
+---------------------------------------------------------------------------
+-- Controllers (WoW's built-in gamepad mode, also used by ConsolePort).
+-- Pushing the movement stick counts like holding W. Only that stick: the
+-- camera stick doesn't move you, so auto-run plus camera turning won't count.
+-- (Controllers mapped to keys by Steam Input etc. already press W/A/S/D.)
+---------------------------------------------------------------------------
+local STICK_DEADZONE = 0.25
+local MOVE_STICK, CAMERA_STICK = 1, 2
+
+-- The active controller's state, or nil plus why not
+local function PadState()
+  local G = C_GamePad
+  if not (G and G.GetActiveDeviceID and G.GetDeviceMappedState) then return nil, "no gamepad API on this client" end
+  local cvarBool = (C_CVar and C_CVar.GetCVarBool) or GetCVarBool
+  if cvarBool then
+    local ok, on = pcall(cvarBool, "GamePadEnable")
+    if ok and on == false then return nil, "gamepad mode is off" end
+  end
+  local ok, id = pcall(G.GetActiveDeviceID)
+  if not ok or not Plain(id) then return nil, "no controller connected" end
+  local ok2, state = pcall(G.GetDeviceMappedState, id)
+  if not ok2 or type(state) ~= "table" then return nil, "controller state not readable" end
+  return state, id
+end
+ns.PadState = PadState
+
+-- x, y and how far the stick is pushed (0..1), or nil
+local function Stick(state, index)
+  local s = state and type(state.sticks) == "table" and state.sticks[index]
+  if type(s) ~= "table" or not Plain(s.x) or not Plain(s.y) then return nil end
+  local len = Plain(s.len) and s.len or math.sqrt(s.x * s.x + s.y * s.y)
+  return s.x, s.y, len
+end
+ns.PadStick = Stick
+
+function ns.StickHeld()
+  local _, _, len = Stick((PadState()), MOVE_STICK)
+  return len ~= nil and len > STICK_DEADZONE
+end
+
+-- Dungeon idle rule: moving the camera stick, or turning the movement stick,
+-- shows you're playing (like moving the mouse)
+local stickRefAngle
+local function PadActivity()
+  local state = PadState()
+  if not state then stickRefAngle = nil return false end
+  local _, _, camLen = Stick(state, CAMERA_STICK)
+  local active = camLen ~= nil and camLen > STICK_DEADZONE
+  local x, y, len = Stick(state, MOVE_STICK)
+  if len and len > STICK_DEADZONE then
+    local angle = math.atan2(y, x)
+    if stickRefAngle then
+      local d = math.abs(angle - stickRefAngle)
+      if d > math.pi then d = 2 * math.pi - d end
+      if d > 0.35 then active, stickRefAngle = true, angle end -- turned by about 20 degrees
+    else
+      stickRefAngle = angle
+    end
+  else
+    stickRefAngle = nil
+  end
+  return active
+end
 
 -- Source 1: world coordinates in yards
 local function UnitPos()
@@ -367,6 +432,8 @@ local function SampleActivity()
     end
   end
   if Flag(UnitAffectingCombat, "player") then MarkActive() end
+  -- controller: camera stick moved, or movement stick turned
+  if PadActivity() then MarkActive() end
 end
 
 function ns.IdleSeconds() return GetTime() - lastActive end
@@ -442,13 +509,36 @@ function ns.Tick(dt)
     d.t, d.yards, d.speed = d.t + dt, d.yards + yards, d.speed + speed * dt
     if d.t >= 1 then
       ns.Print(("debug: keys=%s  pos=%s  speed-says=%.2f yd  counted=%.2f yd  last moved=%.2f / expected %.2f  " ..
-        "idle=%ds  facing=%s  mousedelta=%s  status=%s")
+        "idle=%ds  facing=%s  mousedelta=%s  pad=%s  status=%s")
         :format(ns.HoldingMoveInput() and "held" or "no", ns.state.posSource or "?", d.speed, d.yards,
           ns.state.dbgMoved or 0, ns.state.dbgPending or 0, ns.IdleSeconds(),
           ns.state.facingReadable and "readable" or "hidden",
           GetCursorDelta and (ns.state.mouseDelta and "seen" or L["none yet"]) or "unsupported",
+          ns.StickHeld() and "held" or (ns.PadState() and "idle" or "none"),
           tostring(reason or "counting")))
       d.t, d.yards, d.speed = 0, 0, 0
+    end
+  end
+
+  -- /aws debug pad: once a second, what the controller reports
+  if ns.padDebug then
+    ns.padDebugT = (ns.padDebugT or 0) + dt
+    if ns.padDebugT >= 1 then
+      ns.padDebugT = 0
+      local state, info = ns.PadState()
+      if not state then
+        ns.Print("pad: " .. tostring(info))
+      else
+        local count = type(state.sticks) == "table" and #state.sticks or 0
+        local parts = { ("pad: device %s, %d sticks"):format(tostring(info), count) }
+        for i = 1, count do
+          local x, y, len = ns.PadStick(state, i)
+          parts[#parts + 1] = x and ("stick %d: x=%.2f y=%.2f len=%.2f"):format(i, x, y, len)
+            or ("stick %d: unreadable"):format(i)
+        end
+        parts[#parts + 1] = "moving stick held: " .. (ns.StickHeld() and "yes" or "no")
+        ns.Print(table.concat(parts, "  |  "))
+      end
     end
   end
 
@@ -713,6 +803,11 @@ local function Slash(msg)
     -- the walk in progress if it has a route, otherwise the last activity
     local cur = ns.cdb.current
     ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
+  elseif cmd == "debug" and arg == "pad" then
+    -- what the controller reports, to check controller movement counts
+    ns.padDebug = not ns.padDebug
+    ns.padDebugT = 0
+    ns.Print("Controller debug " .. (ns.padDebug and "ON (once a second). Type /aws debug pad again to stop." or "OFF."))
   elseif cmd == "debug" and arg == "net" then
     -- route sharing and kudos traffic, for tracking down sharing problems
     ns.netDebug = not ns.netDebug

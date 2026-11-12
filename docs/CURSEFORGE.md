@@ -60,7 +60,7 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 **Azeroth Walking Simulator** turns every step your character takes on foot into progress. Walk through Azeroth to log activities, complete weekly and monthly challenges, climb walker ranks, unlock achievements and compete with your friends and guild.
 
 ### What it tracks
-- **Steps you walk yourself.** Steps only count while you hold a movement key or both mouse buttons and your character really moves. Auto-run, running into walls, mounts, flight paths, vehicles, swimming, being dead and following another player never count.
+- **Steps you walk yourself.** Steps only count while you hold a movement key, both mouse buttons or your controller's movement stick, and your character really moves. Auto-run, running into walls, mounts, flight paths, vehicles, swimming, being dead and following another player never count.
 - **Distance, moving time and pace** in kilometers or miles.
 - **Activities:** start, pause and finish sessions yourself, or let auto mode record from login to logout.
 - **All-time totals** for each character and for your whole account, a 7-day chart, daily streaks and personal records.
@@ -102,7 +102,7 @@ Install the addon and log in. A small tracker appears on screen. Type **/aws** t
 | /aws stats | Print your stats in chat |
 
 ### How steps are calculated
-World of Warcraft has no step counter, so the addon measures how far you actually travel on foot and divides it by a step length: 1.4 yards when walking and 2.0 yards when running. These are the same for every player, so steps are fair on all leaderboards and challenges. Click-to-move and controller movement are not counted.
+World of Warcraft has no step counter, so the addon measures how far you actually travel on foot and divides it by a step length: 1.4 yards when walking and 2.0 yards when running. These are the same for every player, so steps are fair on all leaderboards and challenges. Controllers count while you push the movement stick. Click-to-move and auto-run are not counted.
 
 ### Feedback
 Found a bug or have an idea? Open an issue on GitHub: https://github.com/quintanilha6/azeroth-walking-simulator/issues

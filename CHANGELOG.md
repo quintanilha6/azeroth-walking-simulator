@@ -2,6 +2,15 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.5.1] - 2026-11-12
+
+### Added
+- **Controller support.** Walking with a controller's movement stick (WoW's built-in gamepad mode, including ConsolePort) now counts steps, just like holding W. Before, it was treated as auto-run.
+  - Auto-run started from a controller button still doesn't count, and neither does the camera stick on its own.
+  - In dungeons, moving the camera stick or turning the movement stick counts as active play, like moving the mouse.
+  - Controllers mapped to keyboard keys (Steam Input, DS4Windows...) already worked and still do.
+- `/aws debug pad` prints what your controller reports once a second, to help if controller steps don't count.
+
 ## [2.5.0] - 2026-11-11
 
 ### Added
