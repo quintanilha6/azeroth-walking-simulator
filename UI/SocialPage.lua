@@ -48,8 +48,8 @@ end
 -- Leaderboard
 ---------------------------------------------------------------------------
 local PERIODS = { { "today", "Today" }, { "week", "Week" }, { "month", "Month" }, { "all", "All-time" } }
-local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 140 }, { "Rank", 182, 132 }, { "Steps", 336, 85 },
-                     { "Trophies", 425, 60 }, { "Streak", 490, 60 } }
+local BOARD_COLS = { { "#", 14, 22 }, { "Name", 38, 180 }, { "Rank", 222, 150 }, { "Steps", 384, 90 },
+                     { "Streak", 484, 60 } }
 
 local function BoardTooltip(row, d)
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
@@ -75,14 +75,16 @@ local function BoardTooltip(row, d)
   if d.e and d.e.since and d.e.since > 0 then AddLine(L["Walking since"], F.Day(d.e.since)) end
   GameTooltip:AddLine(" ")
   GameTooltip:AddLine(L["Ranks come from all-time steps. See them all in the Trophies tab."], 0.5, 0.5, 0.5, true)
-  if not d.me then GameTooltip:AddLine(L["Right-click: whisper, invite to party..."], 0.5, 0.5, 0.5) end
+  if not d.me then
+    GameTooltip:AddLine(L["Click: view trophies"], 0.5, 0.5, 0.5)
+    GameTooltip:AddLine(L["Right-click: whisper, invite to party..."], 0.5, 0.5, 0.5)
+  end
   GameTooltip:Show()
 end
 
 ---------------------------------------------------------------------------
 -- Right-click menu on a player: whisper, invite, ask to join, add friend
 ---------------------------------------------------------------------------
-local menuFrame
 
 local function Call(...)
   for i = 1, select("#", ...) do
@@ -121,38 +123,11 @@ end
 
 local function OpenPlayerMenu(owner, d)
   if not d or d.me then return end
-  local actions = PlayerActions(d)
-  if not actions then return end
-  GameTooltip:Hide()
-  local title = ns.Social.ColoredName(d.guid) .. (d.online and "" or L[" |cff888888(offline)|r"])
-
-  if MenuUtil and MenuUtil.CreateContextMenu then
-    MenuUtil.CreateContextMenu(owner, function(_, root)
-      root:CreateTitle(title)
-      for _, a in ipairs(actions) do
-        local b = root:CreateButton(a[1], a[2])
-        if not d.online and b.SetEnabled then b:SetEnabled(false) end
-      end
-    end)
-    return
-  end
-
-  if not (UIDropDownMenu_Initialize and ToggleDropDownMenu) then return end
-  menuFrame = menuFrame or CreateFrame("Frame", "AWSPlayerMenu", UIParent, "UIDropDownMenuTemplate")
-  UIDropDownMenu_Initialize(menuFrame, function(_, level)
-    local info = UIDropDownMenu_CreateInfo()
-    info.text, info.isTitle, info.notCheckable = title, true, true
-    UIDropDownMenu_AddButton(info, level)
-    for _, a in ipairs(actions) do
-      info = UIDropDownMenu_CreateInfo()
-      info.text, info.func, info.notCheckable, info.disabled = a[1], a[2], true, not d.online
-      UIDropDownMenu_AddButton(info, level)
-    end
-    info = UIDropDownMenu_CreateInfo()
-    info.text, info.notCheckable, info.func = CANCEL or L["Cancel"], true, function() CloseDropDownMenus() end
-    UIDropDownMenu_AddButton(info, level)
-  end, "MENU")
-  ToggleDropDownMenu(1, nil, menuFrame, "cursor", 0, 0)
+  local actions = PlayerActions(d) or {}
+  if not d.online then for _, a in ipairs(actions) do a[3] = true end end
+  -- their trophies work offline too
+  table.insert(actions, 1, { L["View trophies"], function() ns.ShowProfile(d.guid) end })
+  ns.ContextMenu(owner, ns.Social.ColoredName(d.guid) .. (d.online and "" or L[" |cff888888(offline)|r"]), actions)
 end
 
 local function BuildBoard(box)
@@ -178,12 +153,21 @@ local function BuildBoard(box)
     -- ▲/▼ when this player just moved up or down
     r.arrow = r:CreateTexture(nil, "OVERLAY")
     r.arrow:SetSize(14, 14)
-    r.arrow:SetPoint("LEFT", 320, 0)
+    r.arrow:SetPoint("LEFT", 366, 0)
+    -- gold edge on your own row
+    r.edge = r:CreateTexture(nil, "ARTWORK")
+    r.edge:SetTexture("Interface\\Buttons\\WHITE8X8")
+    r.edge:SetVertexColor(1, 0.82, 0)
+    r.edge:SetPoint("TOPLEFT")
+    r.edge:SetPoint("BOTTOMLEFT")
+    r.edge:SetWidth(3)
     r.arrow:Hide()
     r:SetScript("OnEnter", function(self) if self.data then BoardTooltip(self, self.data) end end)
-    r:RegisterForClicks("RightButtonUp")
+    r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     r:SetScript("OnClick", function(self, button)
-      if button == "RightButton" then OpenPlayerMenu(self, self.data) end
+      if not self.data then return end
+      if button == "RightButton" then OpenPlayerMenu(self, self.data)
+      else ns.ShowProfile(self.data.guid) end -- your own row opens the Trophies tab
     end)
     rows[i] = r
     return r
@@ -246,6 +230,7 @@ local function BuildBoard(box)
         for c = 1, #r.cells do r.cells[c]:SetText("") end
         r.cells[2]:SetText("|cff888888...|r")
         r.bg:SetVertexColor(1, 1, 1, 0)
+        r.edge:Hide()
         r:Show()
       else
       local place = d.place
@@ -279,9 +264,9 @@ local function BuildBoard(box)
       r.cells[2]:SetText(ns.Social.ColoredName(d.guid) .. (d.me and L[" |cff888888(you)|r"] or ""))
       r.cells[3]:SetText(ns.Achievements.RankColored(d.rank))
       r.cells[4]:SetText(F.Number(d.value))
-      r.cells[5]:SetText(d.trophies or 0)
-      r.cells[6]:SetText((d.streak or 0) .. "d")
-      if d.me then r.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.12)
+      r.cells[5]:SetText((d.streak or 0) .. "d")
+      r.edge:SetShown(d.me)
+      if d.me then r.bg:SetVertexColor(1, 0.82, 0, 0.12)
       else r.bg:SetVertexColor(1, 1, 1, i % 2 == 0 and 0.03 or 0) end
       r:Show()
       end
@@ -298,8 +283,10 @@ end
 local function FeedTooltip(row, it)
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
   GameTooltip:AddLine(ns.Social.ColoredName(it.from) .. "  " .. F.Date(it.finish))
+  local hint = not it.mine and L["Click: view trophies"]
   if it.event then
     GameTooltip:AddLine(it.text, 1, 1, 1, true)
+    if hint then GameTooltip:AddLine(hint, 0.5, 0.5, 0.5) end
     GameTooltip:Show()
     return
   end
@@ -317,10 +304,11 @@ local function FeedTooltip(row, it)
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Kudos from: "] .. table.concat(names, ", "), 0.99, 0.6, 0.3, true)
   end
+  if hint then GameTooltip:AddLine(hint, 0.5, 0.5, 0.5) end
   GameTooltip:Show()
 end
 
-local function BuildFeed(box)
+function ns.BuildFeed(box)
   local _, content = ns.MakeScroll(box, "AWSFeedScroll", 0)
   local rows = {}
 
@@ -376,6 +364,11 @@ local function BuildFeed(box)
     r.kudos:SetTextColor(unpack(ns.ORANGE))
 
     r:SetScript("OnEnter", function(self) FeedTooltip(self, self.item) end)
+    -- a friend's row opens their profile (the buttons keep their own clicks)
+    r:SetScript("OnClick", function(self)
+      local it = self.item
+      if it and not it.mine then ns.ShowProfile(it.from) end
+    end)
     rows[i] = r
     return r
   end
@@ -434,47 +427,68 @@ local CATEGORY_EMPTY = {
   everyone = "No other walkers seen yet. Everyone with the addon (and the Everyone leaderboard turned on in Settings) shows up here once you've both been online.",
 }
 
+local PERIOD_LABEL = {}
+for _, p in ipairs(PERIODS) do PERIOD_LABEL[p[1]] = p[2] end
+
 function ns.BuildSocialPage(page)
   local board = CreateFrame("Frame", nil, page)
-  board:SetPoint("TOPLEFT", 0, -60)
+  board:SetPoint("TOPLEFT", 0, -34)
   board:SetPoint("BOTTOMRIGHT")
   BuildBoard(board)
 
-  local feed = CreateFrame("Frame", nil, page)
-  feed:SetPoint("TOPLEFT", 0, -32)
-  feed:SetPoint("BOTTOMRIGHT")
-  BuildFeed(feed)
-
   local info = page:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  info:SetPoint("TOPLEFT", 214, -6)
 
   local empty = page:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-  empty:SetPoint("TOPLEFT", 4, -118)
+  empty:SetPoint("TOPLEFT", 4, -60)
   empty:SetWidth(CONTENT_W)
   empty:SetJustifyH("LEFT")
 
-  page.mode, page.period, page.category = "board", "week", "friends"
-  local boardBtn = ns.SmallButton(page, L["Leaderboard"], 100, function() page.mode = "board"; page:Refresh() end)
-  boardBtn:SetPoint("TOPLEFT", 0, 0)
-  local feedBtn = ns.SmallButton(page, L["Feed"], 100, function() page.mode = "feed"; page:Refresh() end)
-  feedBtn:SetPoint("LEFT", boardBtn, "RIGHT", 4, 0)
+  page.period, page.category = "week", "friends"
 
-  -- Second row: which leaderboard (left) and which period (right)
+  -- Which leaderboard: flat tabs on the left
   local catBtns = {}
   for i, c in ipairs(CATEGORIES) do
     local key = c[1]
-    local b = ns.SmallButton(page, L[c[2]], 84, function() page.category = key; page:Refresh() end)
-    if i == 1 then b:SetPoint("TOPLEFT", 0, -28)
+    local b = ns.TabButton(page, L[c[2]], function() page.category = key; page:Refresh() end, "GameFontNormalSmall")
+    if i == 1 then b:SetPoint("TOPLEFT", 0, 0)
     else b:SetPoint("LEFT", catBtns[i - 1], "RIGHT", 2, 0) end
     b.key, b.label = key, L[c[2]]
     catBtns[i] = b
   end
 
-  -- Top row, right: "Online now" filter and a name search (leaderboard only)
+  -- Which period: one small dropdown
+  local period = CreateFrame("Button", nil, page)
+  period:SetSize(86, 22)
+  period:SetPoint("LEFT", catBtns[#catBtns], "RIGHT", 8, 0)
+  local pbg = period:CreateTexture(nil, "BACKGROUND")
+  pbg:SetAllPoints()
+  pbg:SetTexture("Interface\\Buttons\\WHITE8X8")
+  pbg:SetVertexColor(1, 1, 1, 0.07)
+  local phl = period:CreateTexture(nil, "HIGHLIGHT")
+  phl:SetAllPoints()
+  phl:SetTexture("Interface\\Buttons\\WHITE8X8")
+  phl:SetVertexColor(1, 1, 1, 0.07)
+  local ptext = period:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ptext:SetPoint("LEFT", 8, 0)
+  local parrow = period:CreateTexture(nil, "OVERLAY")
+  parrow:SetSize(12, 12)
+  parrow:SetPoint("RIGHT", -6, 0)
+  parrow:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
+  if parrow.SetRotation then parrow:SetRotation(-math.pi / 2) end
+  period:SetScript("OnClick", function(self)
+    local actions = {}
+    for _, p in ipairs(PERIODS) do
+      local key = p[1]
+      table.insert(actions, { L[p[2]], function() page.period = key; page:Refresh() end })
+    end
+    ns.ContextMenu(self, nil, actions)
+  end)
+
+  -- Right: "Online now" filter and a name search
   local ok, search = pcall(CreateFrame, "EditBox", "AWSBoardSearch", page, "SearchBoxTemplate")
   if not ok then search = CreateFrame("EditBox", "AWSBoardSearch", page, "InputBoxTemplate") end
-  search:SetSize(110, 20)
-  search:SetPoint("TOPRIGHT", -24, 0)
+  search:SetSize(100, 20)
+  search:SetPoint("TOPRIGHT", -24, -1)
   search:SetAutoFocus(false)
   search:SetMaxLetters(24)
   if search.Instructions then search.Instructions:SetText(L["Search name"]) end
@@ -487,50 +501,38 @@ function ns.BuildSocialPage(page)
 
   local online = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
   online:SetSize(22, 22)
-  online:SetPoint("RIGHT", search, "LEFT", -76, 0)
-  -- warnings ("Sharing is OFF") sit just left of the filter
-  info:ClearAllPoints()
-  info:SetPoint("RIGHT", online, "LEFT", -6, 0)
-  info:SetJustifyH("RIGHT")
+  -- follows the period dropdown, so it moves with the tab widths instead of
+  -- overlapping them
+  online:SetPoint("LEFT", period, "RIGHT", 8, 0)
   local onlineLabel = online:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   onlineLabel:SetPoint("LEFT", online, "RIGHT", 0, 1)
   onlineLabel:SetText(L["Online now"])
+  online:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Online now"])
+    GameTooltip:Show()
+  end)
+  online:SetScript("OnLeave", function() GameTooltip:Hide() end)
   online:SetScript("OnClick", function(self)
     page.onlineOnly = self:GetChecked() and true or false
     page:Refresh()
   end)
-
-  local periodBtns = {}
-  for i = #PERIODS, 1, -1 do
-    local key, label = PERIODS[i][1], L[PERIODS[i][2]]
-    local b = ns.SmallButton(page, label, 68, function() page.period = key; page:Refresh() end)
-    if i == #PERIODS then b:SetPoint("TOPRIGHT", -24, -28)
-    else b:SetPoint("RIGHT", periodBtns[i + 1], "LEFT", -2, 0) end
-    b.key = key
-    periodBtns[i] = b
-  end
+  -- warnings ("Sharing is OFF") go under the filters, right side
+  info:SetPoint("TOPRIGHT", -24, -24)
+  info:SetJustifyH("RIGHT")
 
   function page:Refresh()
-    local isBoard = self.mode == "board"
-    board:SetShown(isBoard)
-    feed:SetShown(not isBoard)
-    boardBtn:SetEnabled(not isBoard)
-    feedBtn:SetEnabled(isBoard)
-    for _, b in ipairs(periodBtns) do
-      b:SetShown(isBoard)
-      b:SetEnabled(b.key ~= self.period)
-    end
-    search:SetShown(isBoard)
-    online:SetShown(isBoard)
+    ptext:SetText(L[PERIOD_LABEL[self.period]])
     for _, b in ipairs(catBtns) do
-      b:SetShown(isBoard)
-      b:SetEnabled(b.key ~= self.category)
+      b:SetSelected(b.key == self.category)
       local n = ns.Social.FriendCount(b.key)
-      b:SetText(n > 0 and (b.label .. " (" .. n .. ")") or b.label)
+      b:SetLabel(n > 0 and (b.label .. " (" .. n .. ")") or b.label)
     end
+    -- with very long tab labels, drop the "Online now" text (the box keeps a tooltip)
+    local labelEnd = online:GetRight() and (online:GetRight() + onlineLabel:GetStringWidth() + 6)
+    onlineLabel:SetShown(not (labelEnd and search:GetLeft() and labelEnd > search:GetLeft()))
 
     local shown = board:Refresh(self.period, self.category, self.search, self.onlineOnly)
-    local items = feed:Refresh()
     local others = ns.Social.FriendCount(self.category)
     local warn = ""
     if not ns.settings.shareEnabled then warn = L["|cffff5555Sharing is OFF|r"]
@@ -538,14 +540,11 @@ function ns.BuildSocialPage(page)
     info:SetText(warn)
 
     local searching = strtrim(self.search or "") ~= ""
-    if isBoard and searching and shown == 0 then
+    if searching and shown == 0 then
       empty:SetText((L["No player named \"%s\" on this leaderboard."]):format(strtrim(self.search)))
       empty:Show()
-    elseif isBoard and others == 0 and not searching then
+    elseif others == 0 and not searching then
       empty:SetText(L[CATEGORY_EMPTY[self.category]])
-      empty:Show()
-    elseif not isBoard and items == 0 then
-      empty:SetText(L["Nothing here yet. Activities, challenges and achievements from you and your friends show up here."])
       empty:Show()
     else
       empty:Hide()

@@ -26,8 +26,8 @@ function ns.BuildTrophiesPage(page)
   name:SetFont(STANDARD_TEXT_FONT, 18, "OUTLINE")
   name:SetPoint("TOPLEFT", kicker, "BOTTOMLEFT", 0, -2)
   local bar = CreateFrame("StatusBar", nil, rank)
-  bar:SetPoint("TOPLEFT", 66, -46)
-  bar:SetSize(300, 10)
+  bar:SetPoint("TOPLEFT", 66, -44)
+  bar:SetSize(500, 16)
   bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
   bar:SetStatusBarColor(unpack(ns.ORANGE))
   bar:SetMinMaxValues(0, 1)
@@ -35,60 +35,60 @@ function ns.BuildTrophiesPage(page)
   barBg:SetAllPoints()
   barBg:SetTexture("Interface\\Buttons\\WHITE8X8")
   barBg:SetVertexColor(0, 0, 0, 0.5)
-  local next = rank:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  next:SetPoint("LEFT", bar, "RIGHT", 8, 0)
+  rank:SetHeight(70)
+  local next = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  next:SetPoint("CENTER", 0, 0)
+  local hint = rank:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  hint:SetPoint("TOPRIGHT", -12, -10)
+  hint:SetText(L["Hover to see all ranks"])
 
   local counts = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  counts:SetPoint("TOPLEFT", 4, -74)
+  counts:SetPoint("TOPLEFT", 4, -78)
 
   rank:EnableMouse(true)
   rank:SetScript("OnEnter", function(self) A.ShowRankTooltip(self) end)
   rank:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  -- Scrolling area: rank list, achievements grid, then personal records
-  local _, content = ns.MakeScroll(page, "AWSTrophyScroll", -94)
+  -- Scrolling area: all-time totals, achievements grid, then personal records.
+  -- (All nine ranks are in the rank card's tooltip.)
+  local scroll, content = ns.MakeScroll(page, "AWSTrophyScroll", -98)
+  local lowerTop = 70 -- where the achievements start in the scroll area (set in Refresh)
 
-  local function SectionHeader(y, text)
-    local h = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  local function SectionHeader(parent, y, text)
+    local h = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     h:SetPoint("TOPLEFT", 0, y)
     h:SetTextColor(unpack(ns.ORANGE))
     h:SetText(text)
+    return h
   end
 
-  -- Walker ranks: all nine, with what each needs
-  local RANK_ROW = 18
-  SectionHeader(0, L["Walker ranks"])
-  local rankNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  rankNote:SetPoint("TOPLEFT", 0, -17)
-  rankNote:SetText(L["Earned from all-time steps on this character. Each rank up shows a banner and tells your friends."])
-  local rankRows = {}
-  for i, r in ipairs(A.RANKS) do
-    local row = CreateFrame("Frame", nil, content)
-    row:SetSize(560, RANK_ROW)
-    row:SetPoint("TOPLEFT", 0, -34 - (i - 1) * RANK_ROW)
-    row.bg = row:CreateTexture(nil, "BACKGROUND")
-    row.bg:SetAllPoints()
-    row.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
-    row.mark = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.mark:SetPoint("LEFT", 4, 0)
-    row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    row.name:SetPoint("LEFT", 24, 0)
-    row.name:SetText(("%d.  %s"):format(i, A.RankColored(i)))
-    row.need = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.need:SetPoint("LEFT", 270, 0)
-    row.need:SetText(F.Number(r[1]) .. L[" steps"])
-    row.status = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.status:SetPoint("LEFT", 390, 0)
-    rankRows[i] = row
+  -- All-time totals: this character, plus the account when you have alts
+  local COL = { 0, 145, 290, 435 }
+  local function TotalsRow(parent)
+    local h = SectionHeader(parent, 0, "")
+    return h, {
+      ns.StatTile(parent, COL[1], -18, L["Steps"]),
+      ns.StatTile(parent, COL[2], -18, L["Distance"]),
+      ns.StatTile(parent, COL[3], -18, L["Moving time"]),
+      ns.StatTile(parent, COL[4], -18, L["Activities"]),
+    }
   end
-  local GRID_TOP = -34 - #A.RANKS * RANK_ROW - 14
+  local charHeader, charVals = TotalsRow(content)
+  local acct = CreateFrame("Frame", nil, content)
+  acct:SetSize(570, 56)
+  acct:SetPoint("TOPLEFT", 0, -62)
+  local acctHeader, acctVals = TotalsRow(acct)
 
-  SectionHeader(GRID_TOP, L["Achievements"])
-  GRID_TOP = GRID_TOP - 20
+  -- Achievements and records sit in their own frame, moved up when the
+  -- account row is hidden
+  local lower = CreateFrame("Frame", nil, content)
+  lower:SetSize(570, 1)
+  SectionHeader(lower, 0, L["Achievements"])
+  local GRID_TOP = -20
 
   local tiles = {}
   for i, a in ipairs(A.LIST) do
-    local t = CreateFrame("Frame", nil, content)
+    local t = CreateFrame("Frame", nil, lower)
     t:SetSize(TILE_W - 4, TILE_H - 4)
     t:SetPoint("TOPLEFT", ((i - 1) % 2) * TILE_W, GRID_TOP - math.floor((i - 1) / 2) * TILE_H)
     t.bg = t:CreateTexture(nil, "BACKGROUND")
@@ -118,11 +118,25 @@ function ns.BuildTrophiesPage(page)
     end)
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     t.a = a
+    t.y = -GRID_TOP + math.floor((i - 1) / 2) * TILE_H -- offset inside `lower`
     tiles[i] = t
   end
 
+  -- Banner click: scroll to the achievement (or the rank card) and flash it
+  function page:Highlight(o)
+    if o.rank then ns.Flash(rank) return end
+    for _, t in ipairs(tiles) do
+      if t.a.id == o.ach then
+        local range = scroll:GetVerticalScrollRange() or 0
+        scroll:SetVerticalScroll(math.max(0, math.min(range, lowerTop + t.y - 60)))
+        ns.Flash(t)
+        return
+      end
+    end
+  end
+
   local gridH = -GRID_TOP + math.ceil(#A.LIST / 2) * TILE_H
-  local recHeader = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  local recHeader = lower:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   recHeader:SetPoint("TOPLEFT", 0, -gridH - 10)
   recHeader:SetTextColor(unpack(ns.ORANGE))
   recHeader:SetText(L["Personal records"])
@@ -131,13 +145,13 @@ function ns.BuildTrophiesPage(page)
   local recValues = {}
   for i, label in ipairs(recLabels) do
     local y = -gridH - 30 - (i - 1) * 20
-    local l = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    local l = lower:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     l:SetPoint("TOPLEFT", 4, y)
     l:SetText(label)
-    recValues[i] = content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    recValues[i] = lower:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     recValues[i]:SetPoint("TOPLEFT", 210, y)
   end
-  content:SetHeight(gridH + 40 + #recLabels * 20)
+  local lowerH = gridH + 40 + #recLabels * 20
 
   local function SessionText(s, value)
     if not s then return "-" end
@@ -160,21 +174,27 @@ function ns.BuildTrophiesPage(page)
       next:SetText(L["Max rank. Legendary walker!"])
     end
 
-    for i, row in ipairs(rankRows) do
-      if i == idx then
-        row.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.18)
-        row.mark:SetText(A.CHECK)
-        row.status:SetText(L["You are here"])
-      elseif i < idx then
-        row.bg:SetVertexColor(1, 1, 1, 0.03)
-        row.mark:SetText(A.CHECK)
-        row.status:SetText("|cff33dd55Reached|r")
-      else
-        row.bg:SetVertexColor(1, 1, 1, 0)
-        row.mark:SetText("")
-        row.status:SetText(i == idx + 1 and ("|cffaaaaaa" .. A.NextRankText(steps) .. "|r") or "")
-      end
+    local t = c.total
+    charHeader:SetText((L["All-time: %s (since %s)"]):format(UnitName("player"), F.Day(c.since)))
+    charVals[1]:SetText(F.Number(t.steps))
+    charVals[2]:SetText(F.Distance(t.distance))
+    charVals[3]:SetText(F.Time(t.moving))
+    charVals[4]:SetText(t.sessions)
+    local a = ns.AccountTotals()
+    local hasAlts = a.chars > 1
+    acct:SetShown(hasAlts)
+    if hasAlts then
+      acctHeader:SetText((L["All-time: account (%d characters, since %s)"]):format(a.chars, F.Day(ns.db.since)))
+      acctVals[1]:SetText(F.Number(a.steps))
+      acctVals[2]:SetText(F.Distance(a.distance))
+      acctVals[3]:SetText(F.Time(a.moving))
+      acctVals[4]:SetText(a.sessions)
     end
+    local top = hasAlts and 132 or 70
+    lowerTop = top
+    lower:ClearAllPoints()
+    lower:SetPoint("TOPLEFT", 0, -top)
+    content:SetHeight(top + lowerH)
 
     local w, m, champ = ns.Challenges.Counts()
     counts:SetText((L["|cffffd100Achievements|r %d/%d     |cffffd100Weekly challenges|r %d     "] ..

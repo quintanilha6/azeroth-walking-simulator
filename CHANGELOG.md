@@ -2,6 +2,26 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] - Unreleased
+
+### Added
+- **Clickable banners.** Click a banner to open what you just unlocked: the achievement, rank or challenge flashes so you can see it. Right-click just closes it. Toasts work too: friend news opens that friend's profile, overtakes the leaderboard, kudos your activities.
+- **See your friends' trophies.** Click anyone on the leaderboard (or a friend's row in the feed, or "View trophies" in the right-click menu) to open their profile: rank and progress, today / week / month / all-time, streak, this week's challenges and all their achievements. Friends need 2.6.0 for the achievement list; on older versions you see their count.
+
+### Changed
+- **A cleaner window.** The tabs are now Home, Activities, Challenges, Trophies and Leaderboard, and the selected tab is the bright one. Settings moved to the ⚙ icon next to the close button.
+- **New Home tab** (replaces Overview):
+  - today's steps in big, with this week and your streak next to them
+  - the walk in progress on one line, with a Share button
+  - a bigger 7-day chart
+  - your weekly challenges at a glance (click to open Challenges)
+  - the feed from you and your friends
+- **Activities are cards** with a title like "Afternoon walk in The Barrens", the stats and your kudos. Click one to open its route. Right-click for Quick Share, edit in chat box or Delete; the red ✕ buttons are gone.
+- **Leaderboard:** Friends, Guild and Everyone are tabs, and the period (Today, Week, Month, All-time) is one dropdown. Your own row has a gold edge. The feed moved to Home.
+- **Challenges:** the Weekly Champion line is now a banner above the weekly challenges.
+- **Trophies:** a bigger rank bar; hover the rank card to see all ranks. Your all-time totals moved here, and the account totals only show when you have more than one character.
+- **Smaller tracker:** the buttons sit under it. While you're walking they only show when your mouse is over the tracker; with no session or a paused one they're always there.
+
 ## [2.5.1] - 2026-11-12
 
 ### Added

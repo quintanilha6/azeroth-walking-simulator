@@ -617,12 +617,14 @@ function ns.RefreshUI()
   if ns.Window and ns.Window:IsShown() then ns.Window:RefreshPage() end
 end
 
--- Refresh the Social / Challenges tabs when friend data arrives
+-- Refresh Home / Leaderboard / Challenges when friend data arrives.
+-- Home takes it as a live refresh, so its feed updates at most every 5 s.
 function ns.OnSocialChanged()
   local w = ns.Window
-  if w and w:IsShown() and (w.current == ns.SOCIAL_TAB or w.current == ns.CHALLENGES_TAB) then
-    w:RefreshPage()
+  if w and w:IsShown() and (w.current == 1 or w.current == ns.SOCIAL_TAB or w.current == ns.CHALLENGES_TAB) then
+    w:RefreshPage(w.current == 1)
   end
+  if ns.RefreshProfile then ns.RefreshProfile() end
 end
 
 local driver = CreateFrame("Frame")

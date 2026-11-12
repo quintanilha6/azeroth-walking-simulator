@@ -164,9 +164,30 @@ A.LIST = {
     function() return ns.Social.IsWeekLeader() and 1 or 0, 1 end),
 }
 
+-- NOTE: A.LIST is append-only. Its order is the bit order of A.Mask(), which
+-- friends receive, so reordering or removing entries would show them the
+-- wrong trophies.
+
 local BY_ID = {}
 for _, a in ipairs(A.LIST) do BY_ID[a.id] = a end
 function A.ById(id) return BY_ID[id] end
+
+-- Earned achievements as a hex bitmask (bit i-1 = A.LIST[i]), for the stats message
+function A.Mask(earned)
+  earned = earned or ns.cdb.achievements
+  local n = 0
+  for i, a in ipairs(A.LIST) do
+    if earned[a.id] then n = n + 2 ^ (i - 1) end
+  end
+  return ("%x"):format(n)
+end
+
+-- Is A.LIST[i] set in a mask from A.Mask()? (nil mask = unknown)
+function A.MaskHas(mask, i)
+  local n = mask and tonumber(mask, 16)
+  if not n then return false end
+  return math.floor(n / 2 ^ (i - 1)) % 2 == 1
+end
 
 function A.Count()
   local n = 0
@@ -195,7 +216,8 @@ function A.Check(silent)
     c.rank = rank
     ns.Banner.Show({ kicker = L["RANK UP"], title = A.RankName(rank),
       sub = (L["Rank %d of %d  -  %s steps walked"]):format(rank, #A.RANKS, F.Number(c.total.steps)),
-      icon = "Interface\\Icons\\Ability_Rogue_Sprint", color = ns.ORANGE })
+      icon = "Interface\\Icons\\Ability_Rogue_Sprint", color = ns.ORANGE,
+      open = { tab = ns.TROPHIES_TAB, rank = true } })
     ns.Print(L["Rank up! You are now a "] .. A.RankColored(rank) .. ".")
     ns.Social.Announce("r", tostring(rank), "")
   end
@@ -207,7 +229,7 @@ function A.Check(silent)
         c.achievements[a.id] = time()
         if not silent then
           ns.Banner.Show({ kicker = L["ACHIEVEMENT EARNED"], title = L[a.name], sub = L[a.desc], icon = a.icon,
-            color = ns.GOLD })
+            color = ns.GOLD, open = { tab = ns.TROPHIES_TAB, ach = a.id } })
           ns.Print((L["Achievement earned: |cffffd100%s|r - %s"]):format(L[a.name], L[a.desc]))
           ns.Social.Announce("a", a.id, "")
         end

@@ -200,6 +200,7 @@ function C.Check()
       ns.Banner.Show({
         kicker = p.kind == "weekly" and L["WEEKLY CHALLENGE COMPLETE"] or L["MONTHLY CHALLENGE COMPLETE"],
         title = L[ch.name], sub = L[tier.name] .. "  -  " .. L[ch.desc], icon = tier.icon, color = tier.color,
+        open = { tab = ns.CHALLENGES_TAB, ch = ch.id },
       })
       ns.Print((L["Challenge complete: |cffffd100%s|r (%s)"]):format(L[ch.name], L[tier.name]))
       ns.Social.Announce("c", ch.id, p.key)
@@ -215,7 +216,7 @@ function C.Check()
     wdone.champion = time()
     ns.Banner.Show({ kicker = L["ALL WEEKLY CHALLENGES DONE"], title = L["Weekly Champion!"],
       sub = L["Bronze, Silver and Gold complete. Show off!"], icon = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
-      color = ns.GOLD })
+      color = ns.GOLD, open = { tab = ns.CHALLENGES_TAB, champion = true } })
     ns.Print(L["|cffffd100You are this week's Weekly Champion!|r"])
     ns.Social.Announce("w", "champion", week.key)
   end
@@ -239,6 +240,16 @@ function C.WeekChallengesDone(key)
   return n
 end
 
+-- The Weekly Champion line shown on Home and on the Challenges tab.
+-- Returns the text and whether you're already champion this week.
+function C.ChampionText(key)
+  key = key or C.WeekPeriod().key
+  local t = ns.cdb.completed[key]
+  if t and t.champion then return L[" |cffffd100You are this week's Weekly Champion!|r"], true end
+  local left = math.max(0, 3 - C.WeekChallengesDone(key))
+  return (L["|cffaaaaaaFinish %d more to become |r|cffffd100Weekly Champion|r"]):format(left), false
+end
+
 ---------------------------------------------------------------------------
 -- Weekly recap: first login of a new week
 ---------------------------------------------------------------------------
@@ -258,5 +269,6 @@ function C.WeeklyRecap()
   local text = (L["Last week: %s steps, %d/3 challenges"]):format(F.Number(steps), done)
   if total > 1 then text = text .. (L[", #%d of %d friends"]):format(place, total) end
   ns.Print(text .. L[". New challenges are live!"])
-  ns.Banner.Toast({ title = L["Weekly recap"], text = text, icon = "Interface\\Icons\\INV_Misc_Note_01" })
+  ns.Banner.Toast({ title = L["Weekly recap"], text = text, icon = "Interface\\Icons\\INV_Misc_Note_01",
+    open = { tab = ns.CHALLENGES_TAB } })
 end

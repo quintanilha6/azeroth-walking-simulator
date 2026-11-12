@@ -308,7 +308,8 @@ end
 -- Messages (fields 1-3 are always: type ; version ; sender GUID)
 -- H  hello, "send me your stats"
 -- S  stats: class;level;today;todayDist;week;weekDist;month;monthDist;all;allDist;
---           sessions;streak;active;sessionSteps;since;rank;achievements;weekDone;weekKey;badges
+--           sessions;streak;active;sessionSteps;since;rank;achievements;weekDone;weekKey;badges;
+--           rate;features;dayKey;monthKey;inGroup;achievementMask (hex, see Achievements.Mask)
 -- A  activity: id;steps;dist;moving;elapsed;finish;zone,zone
 -- K  kudos for activity id (sent only to its owner)
 -- C  event: kind(c=challenge, w=weekly champion, a=achievement, r=rank);id;periodKey
@@ -336,7 +337,8 @@ local function StatsMsg()
     (s and not s.paused) and 1 or 0, s and Int(s.steps) or 0, c.since, ns.Achievements.MyRank(),
     ns.Achievements.Count(), Ch.WeekChallengesDone(wp.key), wp.key, #c.badges,
     (s and not s.paused) and math.floor((ns.state.rate or 0) * 10 + 0.5) or 0, -- steps/s x10
-    S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"), InGroup() and 1 or 0)
+    S.FEATURES, date("%Y-%m-%d"), "M" .. date("%Y-%m"), InGroup() and 1 or 0,
+    ns.Achievements.Mask()) -- which achievements (2.6.0+), so friends can see your trophies
 end
 
 local function ActivityMsg(a)
@@ -577,7 +579,7 @@ local function CheckOvertakes(only)
           end
           ns.Print(text)
           ns.Banner.Toast({ title = rel == "ahead" and L["Overtake!"] or L["You've been passed!"], text = text,
-            icon = "Interface\\Icons\\Ability_Rogue_Sprint" })
+            icon = "Interface\\Icons\\Ability_Rogue_Sprint", open = { tab = ns.SOCIAL_TAB } })
         end
       end
     end
@@ -688,6 +690,9 @@ local function HandleStats(guid, p)
   e.rate, e.clock = N(p[24]) / 10, GetTime() -- for counting their steps up live
   e.features = N(p[25]) -- 0 = a version before 2.4.1
   e.inGroup = p[28] == "1"
+  -- achievement bitmask (nil from versions before 2.6.0: count only)
+  local mask = p[29]
+  e.achMask = (mask and mask:match("^%x%x?%x?%x?%x?%x?%x?%x?$")) and mask or nil
   -- the sender's own day and month (older versions: the time it arrived)
   e.todayKey = (p[26] and p[26] ~= "") and Clean(p[26], 12) or date("%Y-%m-%d")
   e.monthKey = (p[27] and p[27] ~= "") and Clean(p[27], 12) or ("M" .. date("%Y-%m"))
@@ -735,7 +740,8 @@ local function HandleKudos(guid, p)
       ns.cdb.kudosReceived = ns.cdb.kudosReceived + 1
       local text = (L["%s gave you kudos for your %s-step activity!"]):format(S.ColoredName(guid), F.Number(a.steps))
       ns.Print(text)
-      ns.Banner.Toast({ title = L["Kudos!"], text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal" })
+      ns.Banner.Toast({ title = L["Kudos!"], text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal",
+        open = { tab = 2 } })
       ns.Achievements.Check()
       return
     end
@@ -793,7 +799,7 @@ local function HandleEvent(guid, p)
 
   local line = S.ColoredName(guid) .. " " .. text
   if ns.settings.socialChat then ns.Print(line) end
-  ns.Banner.Toast({ title = L["Friend news"], text = line, icon = icon })
+  ns.Banner.Toast({ title = L["Friend news"], text = line, icon = icon, open = { profile = guid } })
 end
 
 -- via: "GUILD", "WHISPER", "CHANNEL" or "BN"

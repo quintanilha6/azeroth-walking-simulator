@@ -25,6 +25,119 @@ function ns.SmallButton(parent, text, width, onClick)
   return b
 end
 
+-- A flat tab: grey text, white with an orange underline when selected.
+-- Used for the window tabs and the leaderboard filters (the red buttons are
+-- kept for actions).
+function ns.TabButton(parent, text, onClick, font)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetHeight(24)
+  local fs = b:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
+  fs:SetPoint("CENTER", 0, 1)
+  b:SetFontString(fs)
+  local hl = b:CreateTexture(nil, "HIGHLIGHT")
+  hl:SetAllPoints()
+  hl:SetTexture("Interface\\Buttons\\WHITE8X8")
+  hl:SetVertexColor(1, 1, 1, 0.06)
+  b.bg = b:CreateTexture(nil, "BACKGROUND")
+  b.bg:SetAllPoints()
+  b.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+  b.bg:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.14)
+  b.line = b:CreateTexture(nil, "ARTWORK")
+  b.line:SetTexture("Interface\\Buttons\\WHITE8X8")
+  b.line:SetVertexColor(unpack(ns.ORANGE))
+  b.line:SetPoint("BOTTOMLEFT")
+  b.line:SetPoint("BOTTOMRIGHT")
+  b.line:SetHeight(2)
+
+  function b:SetLabel(t)
+    self:SetText(t)
+    self:SetWidth(math.max(40, fs:GetStringWidth() + 22))
+  end
+  function b:SetSelected(on)
+    self.selected = on
+    self.bg:SetShown(on)
+    self.line:SetShown(on)
+    if on then fs:SetTextColor(1, 1, 1) else fs:SetTextColor(0.62, 0.62, 0.62) end
+  end
+  b:SetScript("OnEnter", function(self) if not self.selected then fs:SetTextColor(0.9, 0.9, 0.9) end end)
+  b:SetScript("OnLeave", function(self) self:SetSelected(self.selected) end)
+  b:SetScript("OnClick", onClick)
+  b:SetLabel(text)
+  b:SetSelected(false)
+  return b
+end
+
+-- Pulse an orange glow around a frame for a few seconds ("this is what you
+-- just unlocked"). One overlay per frame, reused.
+function ns.Flash(frame)
+  if not frame then return end
+  local g = frame.awsFlash
+  if not g then
+    g = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate")
+    g:SetPoint("TOPLEFT", -3, 3)
+    g:SetPoint("BOTTOMRIGHT", 3, -3)
+    g:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+    g:SetBackdropBorderColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 1)
+    local fill = g:CreateTexture(nil, "BACKGROUND")
+    fill:SetPoint("TOPLEFT", 3, -3)
+    fill:SetPoint("BOTTOMRIGHT", -3, 3)
+    fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+    fill:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.15)
+    g:EnableMouse(false)
+    frame.awsFlash = g
+  end
+  g:SetFrameLevel(frame:GetFrameLevel() + 5)
+  g.t = 0
+  g:SetAlpha(1)
+  g:Show()
+  g:SetScript("OnUpdate", function(self, el)
+    self.t = self.t + el
+    if self.t > 3.5 then
+      self:SetScript("OnUpdate", nil)
+      self:Hide()
+      return
+    end
+    local a = 0.55 + 0.45 * math.sin(self.t * 8)
+    if self.t > 2.5 then a = a * (3.5 - self.t) end
+    self:SetAlpha(a)
+  end)
+end
+
+-- Right-click style menu. actions = { { label, func, disabled }, ... }
+local menuFrame
+function ns.ContextMenu(owner, title, actions)
+  GameTooltip:Hide()
+  if MenuUtil and MenuUtil.CreateContextMenu then
+    MenuUtil.CreateContextMenu(owner, function(_, root)
+      if title then root:CreateTitle(title) end
+      for _, a in ipairs(actions) do
+        local b = root:CreateButton(a[1], a[2])
+        if a[3] and b.SetEnabled then b:SetEnabled(false) end
+      end
+    end)
+    return
+  end
+  if not (UIDropDownMenu_Initialize and ToggleDropDownMenu) then return end
+  menuFrame = menuFrame or CreateFrame("Frame", "AWSContextMenu", UIParent, "UIDropDownMenuTemplate")
+  UIDropDownMenu_Initialize(menuFrame, function(_, level)
+    local info
+    if title then
+      info = UIDropDownMenu_CreateInfo()
+      info.text, info.isTitle, info.notCheckable = title, true, true
+      UIDropDownMenu_AddButton(info, level)
+    end
+    for _, a in ipairs(actions) do
+      info = UIDropDownMenu_CreateInfo()
+      info.text, info.func, info.notCheckable, info.disabled = a[1], a[2], true, a[3]
+      UIDropDownMenu_AddButton(info, level)
+    end
+    info = UIDropDownMenu_CreateInfo()
+    info.text, info.notCheckable, info.func = CANCEL or L["Cancel"], true, function() CloseDropDownMenus() end
+    UIDropDownMenu_AddButton(info, level)
+  end, "MENU")
+  ToggleDropDownMenu(1, nil, menuFrame, "cursor", 0, 0)
+end
+
 local STATUS_COLORS = {
   recording = { 0.2, 0.9, 0.3 },
   idle      = { 0.9, 0.8, 0.2 },
@@ -51,6 +164,13 @@ function ns.ApplyTrackerSettings()
   f:SetScale(s.trackerScale)
   f:ClearAllPoints()
   local p = s.trackerPoint
+  -- 2.6.0 made the tracker 28px shorter (112 -> 84). Keep its top edge where
+  -- the player put it when it was saved by its bottom or center.
+  if p and not s.trackerShort then
+    if p[1]:find("BOTTOM") then p[4] = p[4] + 28
+    elseif not p[1]:find("TOP") then p[4] = p[4] + 14 end
+  end
+  s.trackerShort = true
   if p then
     f:SetPoint(p[1], UIParent, p[2], p[3], p[4])
   else
@@ -62,7 +182,7 @@ end
 function ns.CreateTracker()
   if ns.Tracker then return end
   local f = ns.CreatePanel("AWSTracker")
-  f:SetSize(312, 112)
+  f:SetSize(312, 84)
   f:SetFrameStrata("MEDIUM")
   f:SetClampedToScreen(true)
   f:SetMovable(true)
@@ -126,29 +246,57 @@ function ns.CreateTracker()
     if button == "RightButton" then ns.ToggleWindow() end
   end)
 
-  local startBtn = ns.SmallButton(f, L["Start"], 58, function()
+  -- The buttons sit in a strip under the tracker (above it when the tracker
+  -- is near the bottom). While you're walking it only shows when the mouse
+  -- is over the tracker; with no session or a paused one it always shows, so
+  -- Start / Resume are never hidden.
+  local bar = ns.CreatePanel(nil, f)
+  bar:SetSize(312, 32)
+  bar:EnableMouse(true)
+  bar:Hide()
+  local function PlaceBar()
+    bar:ClearAllPoints()
+    local bottom = f:GetBottom()
+    if bottom and bottom * f:GetEffectiveScale() < 60 * UIParent:GetEffectiveScale() then
+      bar:SetPoint("BOTTOM", f, "TOP", 0, -3)
+    else
+      bar:SetPoint("TOP", f, "BOTTOM", 0, 3)
+    end
+  end
+  local hoverAcc = 0
+  f:HookScript("OnUpdate", function(_, elapsed)
+    hoverAcc = hoverAcc + elapsed
+    if hoverAcc < 0.1 then return end
+    hoverAcc = 0
+    local cur = ns.cdb and ns.cdb.current
+    local want = not cur or cur.paused or f:IsMouseOver() or (bar:IsShown() and bar:IsMouseOver())
+    if want and not bar:IsShown() then PlaceBar(); bar:Show()
+    elseif not want and bar:IsShown() then bar:Hide() end
+  end)
+
+  local startBtn = ns.SmallButton(bar, L["Start"], 58, function()
     local s = ns.cdb.current
     if not s then ns.StartSession(false)
     elseif s.paused then ns.ResumeSession()
     else ns.PauseSession() end
   end)
-  startBtn:SetPoint("BOTTOMLEFT", 8, 7)
+  startBtn:SetPoint("LEFT", 8, 0)
 
-  local stopBtn = ns.SmallButton(f, L["Finish"], 58, function() ns.StopSession() end)
+  local stopBtn = ns.SmallButton(bar, L["Finish"], 58, function() ns.StopSession() end)
   stopBtn:SetPoint("LEFT", startBtn, "RIGHT", 2, 0)
 
   local shareBtn
-  shareBtn = ns.SmallButton(f, L["Share"], 58, function() ns.QuickShare.Open(shareBtn) end)
+  shareBtn = ns.SmallButton(bar, L["Share"], 58, function() ns.QuickShare.Open(shareBtn) end)
   shareBtn:SetPoint("LEFT", stopBtn, "RIGHT", 2, 0)
 
   -- Route card for the walk in progress, or the last activity (same as /aws route)
-  local routeBtn = ns.SmallButton(f, L["Route"], 58, function()
+  local routeBtn = ns.SmallButton(bar, L["Route"], 58, function()
     local cur = ns.cdb.current
     ns.RouteViewer.Open(ns.Routes.Has(cur) and cur or ns.cdb.history[1])
   end)
   routeBtn:SetPoint("LEFT", shareBtn, "RIGHT", 2, 0)
 
-  local openBtn = ns.SmallButton(f, L["Stats"], 58, function() ns.ToggleWindow() end)
+  local openBtn = ns.SmallButton(bar, L["Stats"], 58, function() ns.ToggleWindow() end)
   openBtn:SetPoint("LEFT", routeBtn, "RIGHT", 2, 0)
 
   function f:Refresh()

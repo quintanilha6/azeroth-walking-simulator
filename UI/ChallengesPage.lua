@@ -80,6 +80,7 @@ local function Card(parent, y)
 
   function c:Set(e)
     local ch, tier = e.ch, ns.Challenges.TIERS[e.ch.tier]
+    self.id, self.tier = ch.id, ch.tier
     self.edge:SetVertexColor(unpack(tier.color))
     self.icon:SetTexture(tier.icon)
     self.icon:SetDesaturated(false)
@@ -102,19 +103,42 @@ end
 
 function ns.BuildChallengesPage(page)
   local _, weekReset = Header(page, 0, L["This week's challenges"])
+
+  -- Weekly Champion banner above the three weekly cards
+  local banner = CreateFrame("Frame", nil, page)
+  banner:SetSize(CARD_W, 26)
+  banner:SetPoint("TOPLEFT", 0, -20)
+  local bbg = banner:CreateTexture(nil, "BACKGROUND")
+  bbg:SetAllPoints()
+  bbg:SetTexture("Interface\\Buttons\\WHITE8X8")
+  bbg:SetVertexColor(1, 0.82, 0, 0.10)
+  local champ = banner:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  champ:SetPoint("LEFT", 10, 0)
+  champ:SetWidth(CARD_W - 20)
+  champ:SetJustifyH("LEFT")
+  champ:SetWordWrap(false)
+
   local cards = {}
-  for i = 1, 3 do cards[i] = Card(page, -20 - (i - 1) * (CARD_H + 4)) end
+  for i = 1, 3 do cards[i] = Card(page, -50 - (i - 1) * (CARD_H + 4)) end
 
-  local champ = page:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  champ:SetPoint("TOPLEFT", 4, -222)
-
-  local _, monthReset = Header(page, -248, L["This month's challenges"])
-  for i = 4, 5 do cards[i] = Card(page, -268 - (i - 4) * (CARD_H + 4)) end
+  local _, monthReset = Header(page, -258, L["This month's challenges"])
+  for i = 4, 5 do cards[i] = Card(page, -278 - (i - 4) * (CARD_H + 4)) end
 
   local footer = page:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("TOPLEFT", 4, -404)
+  footer:SetPoint("TOPLEFT", 4, -414)
   footer:SetWidth(CARD_W)
   footer:SetJustifyH("LEFT")
+
+  -- Banner click: flash the challenge you just finished (or the champion banner)
+  function page:Highlight(o)
+    if o.champion then ns.Flash(banner) return end
+    for i, c in ipairs(cards) do
+      if (o.ch and c.id == o.ch) or (o.tier and i <= 3 and c.tier == o.tier) then
+        ns.Flash(c)
+        return
+      end
+    end
+  end
 
   function page:Refresh()
     local list, week, month = ns.Challenges.Active()
@@ -125,13 +149,8 @@ function ns.BuildChallengesPage(page)
     weekReset:SetText(L["New challenges in "] .. F.Countdown(week.endTs - now))
     monthReset:SetText(L["Resets in "] .. F.Countdown(month.endTs - now))
 
-    local done = ns.cdb.completed[week.key]
-    if done and done.champion then
-      champ:SetText(CHECK .. L[" |cffffd100You are this week's Weekly Champion!|r"])
-    else
-      local left = 3 - ns.Challenges.WeekChallengesDone(week.key)
-      champ:SetText((L["|cffaaaaaaFinish %d more to become |r|cffffd100Weekly Champion|r"]):format(left))
-    end
+    local text, isChamp = ns.Challenges.ChampionText(week.key)
+    champ:SetText(isChamp and (CHECK .. text) or text)
     local champs = FriendNames(ns.Challenges.FriendsDone(week.key, "champion"))
     if champs then champ:SetText(champ:GetText() .. L["   |cff888888Champions:|r "] .. champs) end
 

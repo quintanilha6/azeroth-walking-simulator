@@ -60,13 +60,21 @@ local function SkipToFade(self)
   if self.t and self.t < 0.3 + self.hold then self.t = 0.3 + self.hold end
 end
 
+-- Left click: open what the banner is about (if it says so), then fade.
+-- Right click: just dismiss.
+local function OnClick(self, button)
+  local open = self.open
+  if button == "LeftButton" and open then ns.ShowUnlocked(open) end
+  SkipToFade(self)
+end
+
 ---------------------------------------------------------------------------
 -- Big banner
 ---------------------------------------------------------------------------
 local big = MakeFrame("AWSBanner", 460, 96, 60)
 big:SetPoint("TOP", UIParent, "TOP", 0, -170)
 big:EnableMouse(true)
-big:SetScript("OnMouseUp", SkipToFade)
+big:SetScript("OnMouseUp", OnClick)
 
 big.kicker = big:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 big.kicker:SetPoint("TOPLEFT", big.icon, "TOPRIGHT", 14, -2)
@@ -78,6 +86,8 @@ big.sub:SetPoint("TOPLEFT", big.title, "BOTTOMLEFT", 0, -5)
 big.sub:SetWidth(360)
 big.sub:SetJustifyH("LEFT")
 big.sub:SetTextColor(0.8, 0.8, 0.8)
+big.hint = big:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+big.hint:SetPoint("BOTTOMRIGHT", -12, 8)
 
 local bigQueue, bigBusy = {}, false
 local function NextBig()
@@ -92,6 +102,8 @@ local function NextBig()
   big.title:SetText(o.title or "")
   big.sub:SetText(o.sub or "")
   big.icon:SetTexture(o.icon or "Interface\\Icons\\Ability_Rogue_Sprint")
+  big.open = o.open
+  big.hint:SetText(o.open and L["Click to see it"] or "")
   ns.PlaySound(SOUND_BIG)
   Play(big, 4, NextBig)
 end
@@ -108,7 +120,7 @@ end
 local toast = MakeFrame("AWSToast", 340, 50, 32)
 toast:SetPoint("TOP", UIParent, "TOP", 0, -100)
 toast:EnableMouse(true)
-toast:SetScript("OnMouseUp", SkipToFade)
+toast:SetScript("OnMouseUp", OnClick)
 toast:SetBackdropBorderColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 0.9)
 toast.stripe:SetVertexColor(ns.ORANGE[1], ns.ORANGE[2], ns.ORANGE[3], 1)
 toast.title = toast:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -128,6 +140,7 @@ local function NextToast()
   toast.title:SetText(o.title or "")
   toast.text:SetText(o.text or "")
   toast.icon:SetTexture(o.icon or "Interface\\Icons\\Ability_Rogue_Sprint")
+  toast.open = o.open
   ns.PlaySound(SOUND_TOAST)
   Play(toast, 3, NextToast)
 end
@@ -141,7 +154,8 @@ end
 
 function B.Test()
   B.Show({ kicker = L["WEEKLY CHALLENGE COMPLETE"], title = L["Centurion"], sub = L["Gold  -  Walk 100,000 steps this week"],
-    icon = ns.Challenges.TIERS.gold.icon, color = ns.Challenges.TIERS.gold.color })
+    icon = ns.Challenges.TIERS.gold.icon, color = ns.Challenges.TIERS.gold.color,
+    open = { tab = ns.CHALLENGES_TAB, tier = "gold" } })
   B.Toast({ title = L["Friend activity"], text = L["Bob completed the Silver challenge Road Warrior!"],
     icon = ns.Challenges.TIERS.silver.icon })
   if not ns.settings.banners then ns.Print(L["Banners are turned off in Settings."]) end

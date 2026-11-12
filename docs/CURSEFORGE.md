@@ -40,10 +40,10 @@ Based on CurseForge's "Creating and Submitting a Project" guide and its Moderati
 Press **Print Screen** in game. Screenshots are saved to `_forever_\Screenshots`.
 
 1. **Mini tracker** while walking, showing the green "Recording" status.
-2. **Overview tab** with some steps and the 7-day chart.
+2. **Home tab** with some steps, the 7-day chart and the feed.
 3. **Challenges tab** with progress bars.
 4. **Trophies tab** showing your rank and achievements.
-5. **Social → Leaderboard**, ideally with a friend or guildie on it.
+5. **Leaderboard tab**, ideally with a friend or guildie on it.
 6. **A challenge banner.** `/aws testbanner` shows one any time.
 7. **The Quick Share menu** open.
 
@@ -84,7 +84,7 @@ Strava for Azeroth: count the steps you walk on foot, beat weekly challenges, ea
 - See the path you walked on a **route card with its own map**: zoom, drag, click into zones, or view the whole world.
 - Routes are **colored by speed**: walking, running, fast on foot, and mounted travel.
 - Hearthstones, portals, flight paths and boats show as white dashed lines; auto-run shows as a cyan dashed line.
-- Open your **friends' routes** straight from the Feed, and save any route card as a **screenshot**.
+- Open your **friends' routes** straight from the feed on the Home tab, and save any route card as a **screenshot**.
 
 ### Languages
 English, Português (Portugal), Español, Français, Deutsch and Italiano. The addon always uses the same language as your game.
