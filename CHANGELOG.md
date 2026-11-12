@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.2] - 2026-11-12
+
+### Added
+- **Clickable chat links.** Challenge, trophy and rank names in chat messages ("Bob completed the Silver challenge [Long Haul]") are now links, like item links. Click one to open it in the window, where it flashes. Player names in these messages are links too: click one to open their profile.
+
 ## [2.7.1] - 2026-11-12
 
 ### Fixed

@@ -570,7 +570,7 @@ local function CheckOvertakes(only)
         local recent = time() - (c.rivals.alerted[guid] or 0) < ALERT_COOLDOWN
         if prev and prev ~= rel and not recent then
           c.rivals.alerted[guid] = time()
-          local name = S.ColoredName(guid)
+          local name = ns.PlayerLink(guid)
           local text
           if rel == "ahead" then
             text = (L["You passed %s on this week's leaderboard!"]):format(name)
@@ -721,7 +721,7 @@ local function HandleActivity(guid, p)
   -- Only announce fresh activities (not old ones sent as a hello reply)
   if ns.settings.socialChat and time() - item.finish < 600 then
     ns.Print((L["%s finished an activity: %s steps, %s in %s. Give kudos in /aws social"]):format(
-      S.ColoredName(guid), F.Number(item.steps), F.Distance(item.distance), F.Time(item.moving)))
+      ns.PlayerLink(guid), F.Number(item.steps), F.Distance(item.distance), F.Time(item.moving)))
   end
 end
 
@@ -738,7 +738,7 @@ local function HandleKudos(guid, p)
       end
       table.insert(a.kudos, guid)
       ns.cdb.kudosReceived = ns.cdb.kudosReceived + 1
-      local text = (L["%s gave you kudos for your %s-step activity!"]):format(S.ColoredName(guid), F.Number(a.steps))
+      local text = (L["%s gave you kudos for your %s-step activity!"]):format(ns.PlayerLink(guid), F.Number(a.steps))
       ns.Print(text)
       ns.Banner.Toast({ title = L["Kudos!"], text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal",
         open = { tab = 2 } })
@@ -753,16 +753,17 @@ local function EventText(kind, id)
   if kind == "c" then
     local ch = ns.Challenges.ById(id)
     if ch then
-      return (L["completed the %s challenge |cffffd100%s|r"]):format(ns.Challenges.TierName(ch), L[ch.name]),
+      return (L["completed the %s challenge |cffffd100%s|r"]):format(ns.Challenges.TierName(ch), ns.ChallengeLink(ch)),
         ns.Challenges.TIERS[ch.tier].icon
     end
   elseif kind == "w" then
-    return L["became |cffffd100Weekly Champion|r!"], "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    return ns.Link("w", "champion", L["became |cffffd100Weekly Champion|r!"]), "Interface\\Icons\\INV_Misc_Head_Dragon_01"
   elseif kind == "a" then
     local a = ns.Achievements.ById(id)
-    if a then return (L["earned |cffffd100%s|r"]):format(L[a.name]), a.icon end
+    if a then return (L["earned |cffffd100%s|r"]):format(ns.AchievementLink(a)), a.icon end
   elseif kind == "r" then
-    return L["ranked up to "] .. ns.Achievements.RankColored(tonumber(id)), "Interface\\Icons\\Ability_Rogue_Sprint"
+    return L["ranked up to "] .. ns.Link("r", id, "[" .. ns.Achievements.RankColored(tonumber(id)) .. "]"),
+      "Interface\\Icons\\Ability_Rogue_Sprint"
   end
 end
 
@@ -797,7 +798,7 @@ local function HandleEvent(guid, p)
                           text = text, icon = icon })
   while #feed > FEED_CAP do table.remove(feed) end
 
-  local line = S.ColoredName(guid) .. " " .. text
+  local line = ns.PlayerLink(guid) .. " " .. text
   if ns.settings.socialChat then ns.Print(line) end
   ns.Banner.Toast({ title = L["Friend news"], text = line, icon = icon, open = { profile = guid } })
 end

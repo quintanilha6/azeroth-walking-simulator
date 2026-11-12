@@ -202,7 +202,7 @@ function C.Check()
         title = L[ch.name], sub = L[tier.name] .. "  -  " .. L[ch.desc], icon = tier.icon, color = tier.color,
         open = { tab = ns.CHALLENGES_TAB, ch = ch.id },
       })
-      ns.Print((L["Challenge complete: |cffffd100%s|r (%s)"]):format(L[ch.name], L[tier.name]))
+      ns.Print((L["Challenge complete: |cffffd100%s|r (%s)"]):format(ns.ChallengeLink(ch), L[tier.name]))
       ns.Social.Announce("c", ch.id, p.key)
     end
     if p.kind == "weekly" then

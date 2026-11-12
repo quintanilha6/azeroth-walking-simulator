@@ -408,7 +408,7 @@ function A.Check(silent)
       sub = (L["Rank %d of %d  -  %s steps walked"]):format(rank, #A.RANKS, F.Number(c.total.steps)),
       icon = "Interface\\Icons\\Ability_Rogue_Sprint", color = ns.ORANGE,
       open = { tab = ns.TROPHIES_TAB, rank = true } })
-    ns.Print(L["Rank up! You are now a "] .. A.RankColored(rank) .. ".")
+    ns.Print(L["Rank up! You are now a "] .. ns.Link("r", rank, "[" .. A.RankColored(rank) .. "]") .. ".")
     ns.Social.Announce("r", tostring(rank), "")
   end
 
@@ -427,7 +427,7 @@ function A.Check(silent)
         elseif not silent then
           ns.Banner.Show({ kicker = L["ACHIEVEMENT EARNED"], title = L[a.name], sub = L[a.desc], icon = a.icon,
             color = ns.GOLD, open = { tab = ns.TROPHIES_TAB, ach = a.id } })
-          ns.Print((L["Achievement earned: |cffffd100%s|r - %s"]):format(L[a.name], L[a.desc]))
+          ns.Print((L["Achievement earned: |cffffd100%s|r - %s"]):format(ns.AchievementLink(a), L[a.desc]))
           ns.Social.Announce("a", a.id, "")
         end
       end

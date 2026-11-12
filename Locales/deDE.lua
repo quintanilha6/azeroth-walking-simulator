@@ -415,4 +415,5 @@ L["New trophies"] = "Neue Trophäen"
 
 L["Your last session was saved (%s steps). A new one has started."] = "Deine letzte Sitzung wurde gespeichert (%s Schritte). Eine neue hat begonnen."
 
+
 ns.RegisterLocale("deDE", L)

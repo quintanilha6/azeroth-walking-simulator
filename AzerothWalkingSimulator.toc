@@ -30,6 +30,7 @@ UI\Banner.lua
 UI\Tracker.lua
 UI\QuickShare.lua
 UI\ProfileCard.lua
+UI\Links.lua
 UI\RouteViewer.lua
 UI\SocialPage.lua
 UI\ChallengesPage.lua
