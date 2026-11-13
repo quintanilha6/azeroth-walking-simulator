@@ -2,6 +2,11 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.4] - 2026-11-13
+
+### Fixed
+- **The X button now closes the window in combat** (main window, route card and player profile). Before, the click was blocked until combat ended. The window never closes by itself when combat starts.
+
 ## [2.7.3] - 2026-11-12
 
 ### Changed

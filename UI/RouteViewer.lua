@@ -595,8 +595,7 @@ local function BuildCard()
   card.sub:SetWordWrap(false)
   card.sub:SetTextColor(0.75, 0.75, 0.75)
 
-  card.close = CreateFrame("Button", nil, card, "UIPanelCloseButton")
-  card.close:SetPoint("TOPRIGHT", -2, -2)
+  card.close = ns.CloseButton(card)
 
   -- Map area
   local canvas = CreateFrame("Frame", nil, card)

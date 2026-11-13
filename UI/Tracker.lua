@@ -17,6 +17,15 @@ function ns.CreatePanel(name, parent)
   return f
 end
 
+-- The standard X button. It hides its window directly: the template's own
+-- click goes through the game's panel manager, which is blocked in combat.
+function ns.CloseButton(parent)
+  local b = CreateFrame("Button", nil, parent, "UIPanelCloseButton")
+  b:SetPoint("TOPRIGHT", -2, -2)
+  b:SetScript("OnClick", function() parent:Hide() end)
+  return b
+end
+
 function ns.SmallButton(parent, text, width, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(width or 60, 20)

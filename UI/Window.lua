@@ -473,8 +473,7 @@ local function CreateWindow()
   sub:SetPoint("LEFT", title, "RIGHT", 10, -1)
   f.sub = sub
 
-  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", -2, -2)
+  local close = ns.CloseButton(f)
 
   -- Settings is a gear next to the close button, not a tab
   local gear = CreateFrame("Button", nil, f)

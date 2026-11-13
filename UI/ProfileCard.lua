@@ -32,8 +32,7 @@ local function Create()
   f:Hide()
   tinsert(UISpecialFrames, "AWSProfile") -- close with Escape
 
-  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", -2, -2)
+  ns.CloseButton(f)
 
   -- Name and status
   f.name = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
