@@ -77,27 +77,62 @@ local function Dashed(pool, frame, x1, y1, x2, y2, color, thickness)
   end
 end
 
-local function Marker(frame, color, size)
-  local m = frame:CreateTexture(nil, "OVERLAY", nil, 7)
-  m:SetTexture("Interface\\Buttons\\WHITE8X8")
-  m:SetSize(size, size)
-  m:SetVertexColor(unpack(color))
-  local border = frame:CreateTexture(nil, "OVERLAY", nil, 6)
-  border:SetTexture("Interface\\Buttons\\WHITE8X8")
-  border:SetVertexColor(0, 0, 0, 1)
-  border:SetPoint("TOPLEFT", m, -2, 2)
-  border:SetPoint("BOTTOMRIGHT", m, 2, -2)
-  m.border = border
+-- Round markers made of stacked discs, outer to inner: { {size, color}, ... }
+local DISC = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+local function Marker(frame, rings)
+  local m = {}
+  for i, r in ipairs(rings) do
+    local t = frame:CreateTexture(nil, "OVERLAY", nil, 2 + i) -- above the route lines
+    t:SetTexture(DISC)
+    t:SetSize(r[1], r[1])
+    t:SetVertexColor(unpack(r[2]))
+    t:Hide()
+    m[i] = t
+  end
+  return m
+end
+
+-- Start flag: a white pole standing on the start point with a green banner,
+-- each piece outlined in black
+local function Flag(frame)
+  local m = { point = "BOTTOM" }
+  local function Part(sub, w, h, color, rel)
+    local t = frame:CreateTexture(nil, "OVERLAY", nil, sub)
+    t:SetTexture("Interface\\Buttons\\WHITE8X8")
+    t:SetSize(w, h)
+    t:SetVertexColor(unpack(color))
+    t.rel = rel
+    t:Hide()
+    m[#m + 1] = t
+  end
+  Part(3, 4, 18, BLACK)                                         -- pole outline
+  Part(5, 2, 16, WHITE, { "BOTTOM", 1, "BOTTOM", 0, 1 })        -- pole
+  Part(4, 11, 9, BLACK, { "TOPLEFT", 1, "TOPRIGHT", -1, 0 })    -- banner outline
+  Part(6, 9, 7, GREEN, { "TOPLEFT", 3, "TOPLEFT", 1, -1 })      -- banner
   return m
 end
 
 local function ShowMarker(m, frame, x, y)
-  m:ClearAllPoints()
-  m:SetPoint("CENTER", frame, "TOPLEFT", x, -y)
-  m:Show(); m.border:Show()
+  m[1]:ClearAllPoints()
+  m[1]:SetPoint(m.point or "CENTER", frame, "TOPLEFT", x, -y)
+  for i, t in ipairs(m) do
+    if i > 1 then
+      t:ClearAllPoints()
+      local r = t.rel
+      if r then t:SetPoint(r[1], m[r[2]], r[3], r[4], r[5]) else t:SetPoint("CENTER", m[1]) end
+    end
+    t:Show()
+  end
 end
 
-local function HideMarker(m) m:Hide(); m.border:Hide() end
+local function HideMarker(m) for _, t in ipairs(m) do t:Hide() end end
+
+-- A class's color (yellow if unknown)
+local function ClassColor(class)
+  local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+  if c then return c.r, c.g, c.b end
+  return 1, 0.82, 0
+end
 
 ---------------------------------------------------------------------------
 -- Map math (results cached while a card is open)
@@ -360,7 +395,9 @@ local function DrawRoute(route, toPixel)
     end
   end
   if firstPt then ShowMarker(card.startMark, layer, firstPt[1], firstPt[2]) end
-  if lastPt then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
+  -- a walk still being recorded has no end yet: the "you" marker shows instead
+  local live = card.activity == ns.cdb.current and not card.owner
+  if lastPt and not live then ShowMarker(card.endMark, layer, lastPt[1], lastPt[2]) end
   UpdateLegend()
   return skipped
 end
@@ -422,9 +459,10 @@ local function PlayerOnMap(M)
   return x1 + pos.x * (x2 - x1), y1 + pos.y * (y2 - y1)
 end
 
--- Yellow "you are here" marker
+-- "You are here" marker: only on the walk you're recording right now
 local function UpdateMe()
-  if not card.interactive or not view.mapID then HideMarker(card.meMark) return end
+  local live = card.activity and card.activity == ns.cdb.current and not card.owner
+  if not live or not card.interactive or not view.mapID then HideMarker(card.meMark) return end
   local x, y = PlayerOnMap(view.mapID)
   if not x then HideMarker(card.meMark) return end
   local _, _, mapW, mapH = Layout()
@@ -626,9 +664,12 @@ local function BuildCard()
   card.jumps = NewPool(lineLayer, "ARTWORK", 0)
   card.outline = NewPool(lineLayer, "ARTWORK", 2)
   card.route = NewPool(lineLayer, "OVERLAY", 1)
-  card.startMark = Marker(lineLayer, GREEN, 10)
-  card.endMark = Marker(lineLayer, WHITE, 10)
-  card.meMark = Marker(lineLayer, { 1, 0.82, 0 }, 9)
+  -- start: a small green flag; end: class-colored dot;
+  -- you (live walk only): class-colored dot in a white ring
+  card.startMark = Flag(lineLayer)
+  card.endMark = Marker(lineLayer, { { 13, BLACK }, { 9, WHITE } })
+  card.meMark = Marker(lineLayer, { { 17, BLACK }, { 14, WHITE }, { 10, WHITE } })
+  card.meMark[3]:SetVertexColor(ClassColor(select(2, UnitClass("player"))))
 
   -- Overlay: map name, hint, controls
   local over = CreateFrame("Frame", nil, canvas)
@@ -825,7 +866,8 @@ end
 
 -- owner: a friend's display name (nil = your own activity).
 -- emptyText: message shown on the map when there's no route (yet).
-function V.Open(s, owner, emptyText)
+-- class: the friend's class file (e.g. "PRIEST"), colors the end marker.
+function V.Open(s, owner, emptyText, class)
   if not s then return ns.Print(L["No activity to show yet."]) end
   if not card then
     BuildCard()
@@ -834,6 +876,7 @@ function V.Open(s, owner, emptyText)
   end
   wipe(cache)
   card.activity, card.owner = s, owner
+  card.endMark[2]:SetVertexColor(ClassColor(owner and class or select(2, UnitClass("player"))))
   card.drawnPoints = s.route and s.route.n
   FillStats(s)
 
@@ -875,8 +918,12 @@ end
 
 -- A friend's activity from the Feed: ask them for the route if we don't have it
 function V.OpenFriend(item, owner)
-  if ns.Routes.Has(item) then return V.Open(item, owner) end
-  V.Open(item, owner, (L["Loading route from %s..."]):format(owner))
+  local e = item.from and ns.db.social.people[item.from]
+  local class = e and e.class
+  local Open = V.Open
+  local function OpenIt(it, who, text) return Open(it, who, text, class) end
+  if ns.Routes.Has(item) then return OpenIt(item, owner) end
+  OpenIt(item, owner, (L["Loading route from %s..."]):format(owner))
   ns.Social.RequestRoute(item,
     function(got, total)
       if card.activity == item and card:IsShown() then
@@ -885,13 +932,13 @@ function V.OpenFriend(item, owner)
     end,
     function(route, reason)
       if card.activity ~= item or not card:IsShown() then return end
-      if route then return V.Open(item, owner) end
+      if route then return OpenIt(item, owner) end
       if reason == "offline" then
-        V.Open(item, owner, (L["%s isn't online right now, so the route can't be loaded.\nTry again when they are."]):format(owner))
+        OpenIt(item, owner, (L["%s isn't online right now, so the route can't be loaded.\nTry again when they are."]):format(owner))
       elseif reason == "noanswer" then
-        V.Open(item, owner, (L["%s didn't answer. They may need to update the addon\nto share routes, or they just went offline."]):format(owner))
+        OpenIt(item, owner, (L["%s didn't answer. They may need to update the addon\nto share routes, or they just went offline."]):format(owner))
       else
-        V.Open(item, owner, (L["%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"]):format(owner))
+        OpenIt(item, owner, (L["%s has no route for this activity.\n(Walked in a dungeon, or before version 2.3.)"]):format(owner))
       end
     end)
 end
