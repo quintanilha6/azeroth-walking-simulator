@@ -2,6 +2,12 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.7.5] - 2026-11-14
+
+### Changed
+- **New route markers.** The start of a route is now a small green flag, and the end is a round dot in your class color (your friend's class color on their routes).
+- While you're recording, the map shows the start and a class-colored "you are here" dot, with no end marker. Finished routes no longer show your current position.
+
 ## [2.7.4] - 2026-11-13
 
 ### Fixed
