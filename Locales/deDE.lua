@@ -251,7 +251,6 @@ L["Start an activity (1,000+ steps) between 5 and 8 am"] = "Starte eine Aktivit�
 L["Start an activity (1,000+ steps) between midnight and 4 am"] = "Starte eine Aktivität (1.000+ Schritte) zwischen Mitternacht und 4 Uhr morgens"
 L["Stats"] = "Statistik"
 L["Steps"] = "Schritte"
-L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Schritte zählen nur, solange du Bewegungstasten (oder beide Maustasten) hältst und dich wirklich bewegst: nicht bei automatischem Laufen, Wänden, auf dem Reittier, Flugrouten, Fahrzeugen, Schwimmen, Tod oder /follow. Die Schrittlänge ist für alle gleich (1,4 Yard gehend, 2,0 Yard laufend), damit alle Ranglisten fair sind."
 L["Streak"] = "Serie"
 L["Stretch Your Legs"] = "Beine vertreten"
 L["Swimming"] = "Schwimmen"
@@ -415,5 +414,12 @@ L["New trophies"] = "Neue Trophäen"
 
 L["Your last session was saved (%s steps). A new one has started."] = "Deine letzte Sitzung wurde gespeichert (%s Schritte). Eine neue hat begonnen."
 
+
+
+L["That channel is used by Azeroth Walking Simulator in the background. Messages can't be sent to it."] = "Dieser Kanal wird von Azeroth Walking Simulator im Hintergrund genutzt. Nachrichten können dort nicht gesendet werden."
+L["%s gave you kudos for %s!"] = "%s hat dir Kudos für %s gegeben!"
+L["Kudos to %s"] = "Kudos an %s"
+
+L["Steps count while your character really moves: on foot, auto-run, mounted or in a travel form. Mounts and travel forms count at running pace, so riding is never worth more than running. Walls, flight paths, vehicles, flying, swimming, being dead and /follow don't count. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Schritte zählen, solange sich dein Charakter wirklich bewegt: zu Fuß, mit Autolauf, auf einem Reittier oder in einer Reisegestalt. Reittiere und Reisegestalten zählen im Lauftempo, Reiten bringt also nie mehr als Laufen. Wände, Flugrouten, Fahrzeuge, Fliegen, Schwimmen, Tod und /follow zählen nicht. Die Schrittlänge ist für alle gleich (1,4 yd Gehen, 2,0 yd Laufen), damit alle Ranglisten fair sind."
 
 ns.RegisterLocale("deDE", L)

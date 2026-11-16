@@ -124,13 +124,13 @@ function ns.BuildTrophiesPage(page)
 
   -- Banner click: scroll to the achievement (or the rank card) and flash it
   function page:Highlight(o)
-    if o.rank then ns.Flash(rank) return end
+    if o.rank then ns.Flash(rank) return rank end
     for _, t in ipairs(tiles) do
       if t.a.id == o.ach then
         local range = scroll:GetVerticalScrollRange() or 0
         scroll:SetVerticalScroll(math.max(0, math.min(range, lowerTop + t.y - 60)))
         ns.Flash(t)
-        return
+        return t
       end
     end
   end

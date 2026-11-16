@@ -425,7 +425,7 @@ local function BuildSettings(page)
   help:SetPoint("TOPLEFT", 0, y)
   help:SetWidth(WIDTH - 50)
   help:SetJustifyH("LEFT")
-  help:SetText(L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] ..
+  help:SetText(L["Steps count while your character really moves: on foot, auto-run, mounted or in a travel form. Mounts and travel forms count at running pace, so riding is never worth more than running. Walls, flight paths, vehicles, flying, swimming, being dead and /follow don't count. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] ..
     "\n" .. L["Commands"] .. ": /aws, /aws start | pause | resume | stop, /aws auto on|off, /aws tracker, " ..
     "/aws stats, /aws challenges, /aws trophies, /aws social, /aws share, /aws route, /aws options, " ..
     "/aws minimap. " .. L["Right-click the tracker to open."])
@@ -562,7 +562,45 @@ function ns.ShowUnlocked(open)
   ns.ToggleWindow(open.tab)
   local page = ns.Window and ns.Window.pages[open.tab]
   -- next frame, once the page has laid itself out (scroll ranges)
-  if page and page.Highlight then C_Timer.After(0, function() page:Highlight(open) end) end
+  if page and page.Highlight then
+    C_Timer.After(0, function()
+      local target = page:Highlight(open)
+      if target and open.kudos then ns.ShowKudosButton(target, open.kudos) end
+    end)
+  end
+end
+
+-- "Kudos to Bob" on the tile of a friend's trophy / challenge you opened
+-- from their news. One button, moved to whatever was opened last.
+local kudosBtn
+function ns.ShowKudosButton(target, item)
+  local S = ns.Social
+  if not (S.CanEventKudos(item) or item.kudos) then return end
+  local f = ns.Window
+  if not kudosBtn then
+    kudosBtn = ns.SmallButton(f, "", 120, function(self)
+      S.GiveEventKudos(self.item)
+      self:SetText(L["Sent"])
+      self:Disable()
+      C_Timer.After(2, function() if self.item and self.item.kudos then self:Hide() end end)
+    end)
+    f:HookScript("OnHide", function() kudosBtn:Hide() end)
+    hooksecurefunc(f, "SelectTab", function() kudosBtn:Hide() end)
+  end
+  local b = kudosBtn
+  b.item = item
+  local e = ns.db.social.people[item.from]
+  b:SetText(item.kudos and L["Sent"] or (L["Kudos to %s"]):format(S.Short(e and e.name or "?")))
+  b:SetEnabled(not item.kudos)
+  b:SetWidth(math.max(90, b:GetFontString():GetStringWidth() + 24))
+  b:SetParent(target)
+  b:SetFrameLevel(target:GetFrameLevel() + 10)
+  b:ClearAllPoints()
+  b:SetPoint("RIGHT", target, "RIGHT", -8, 0)
+  b:Show()
+  local token = {}
+  b.token = token
+  C_Timer.After(15, function() if b.token == token then b:Hide() end end)
 end
 
 function ns.ToggleWindow(tab)

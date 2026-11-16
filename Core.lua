@@ -172,7 +172,7 @@ function ns.NotCountingReason()
   if Flag(UnitIsDeadOrGhost, "player") then return "dead" end
   if Flag(UnitOnTaxi, "player") then return "taxi" end
   if Flag(UnitInVehicle, "player") then return "vehicle" end
-  if Flag(IsMounted) then return "mounted" end
+  -- mounted counts (at running pace, see ns.Tick); flying doesn't
   if Flag(IsFlying) then return "flying" end
   if Flag(IsSwimming) then return "swimming" end
   if ns.state.follow then return "follow" end
@@ -467,7 +467,8 @@ function ns.Tick(dt)
   local reason = ns.NotCountingReason()
   if not reason and Flag(UnitIsAFK, "player") then reason = "afk" end
   local speed = ns.PlayerSpeed()
-  if not reason and speed > 0 and not ns.HoldingMoveInput() then reason = "noinput" end
+  -- Auto-run counts too: rule 2 (your position must really change) still
+  -- stops auto-running into a wall, and rule 3 covers dungeons
 
   local yards = 0
   if not reason and speed > 0 then
@@ -488,15 +489,9 @@ function ns.Tick(dt)
     end
   else
     ResetAnchor()
-    -- Riding a mount: no steps, but draw it on the route (in mount colors)
     local cur = ns.cdb.current
-    if reason == "mounted" and speed > 0 and cur and not cur.paused then
-      ReadPosition()
-      local st = ns.state
-      -- hidden speed reads as running; a mount is at least the 60% band
-      if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, math.max(speed, 11)) end
-    elseif (reason == "noinput" or reason == "follow") and speed > 0 and cur and not cur.paused then
-      -- Auto-run and /follow: drawn on the route as their own dashed line, no steps
+    if reason == "follow" and speed > 0 and cur and not cur.paused then
+      -- /follow: drawn on the route as its own dashed line, no steps
       ReadPosition()
       local st = ns.state
       if st.posA then ns.Routes.Record(cur, st.posA, st.posB, st.posInst, speed, ns.Routes.AUTO_BAND) end
@@ -549,7 +544,11 @@ function ns.Tick(dt)
 
   if yards > 0 then
     local stride = (speed < ns.WALK_MAX_SPEED) and ns.WALK_STRIDE or ns.RUN_STRIDE
-    local steps = yards / stride
+    -- Faster than running (mounts, travel form, Ghost Wolf): steps come at
+    -- running pace, so riding is never worth more than running. The distance
+    -- stays the real distance.
+    local pace = (speed > RUN_SPEED) and (RUN_SPEED / speed) or 1
+    local steps = yards / stride * pace
     local t = c.total
     t.steps, t.distance, t.moving = t.steps + steps, t.distance + yards, t.moving + dt
 

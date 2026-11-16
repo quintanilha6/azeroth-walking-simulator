@@ -2,6 +2,19 @@
 
 All notable changes to Azeroth Walking Simulator. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-11-16
+
+### Changed
+- **Auto-run and mounts now count.** Steps count whenever your character really moves: on foot, on auto-run, mounted or in a travel form (Travel Form, Ghost Wolf...). Anything faster than running counts at running pace, so riding is never worth more steps per minute than running. The distance is the real distance.
+- Running (or auto-running) into a wall still doesn't count, and neither do flight paths, vehicles, flying, swimming, being dead or /follow.
+- Friends on older versions only count these once they update.
+
+### Added
+- **Kudos for your friends' trophies, challenges and ranks.** Friend news in the feed now has a Kudos button. Clicking a friend's trophy or challenge link in chat opens it with a "Kudos to ..." button next to it. Your friend gets a toast, and it counts toward the kudos trophies. Both of you need 2.8.0.
+
+### Fixed
+- **You can't type into the addon's hidden channel by accident anymore.** If the chat box switches to it (for example by its channel number), it goes back to Say and the text is cleared, so nothing reaches every player with the addon.
+
 ## [2.7.5] - 2026-11-14
 
 ### Changed

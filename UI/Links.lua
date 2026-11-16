@@ -12,37 +12,48 @@ local L = ns.L
 -- Classic, so the default click code leaves it alone; we only hook
 -- SetItemRef (no globals replaced), the same way WeakAuras does.
 
--- label is shown as-is (it may carry its own color codes)
-function ns.Link(kind, id, label)
-  return ("|Hgarrmission:aws:%s:%s|h%s|h"):format(kind, tostring(id), label)
+-- label is shown as-is (it may carry its own color codes).
+-- from: optional GUID of the friend it's about ("...:c:<id>:<guid>"); the
+-- window then offers kudos next to the item.
+function ns.Link(kind, id, label, from)
+  local ref = tostring(id) .. (from and (":" .. from) or "")
+  return ("|Hgarrmission:aws:%s:%s|h%s|h"):format(kind, ref, label)
 end
 
-function ns.ChallengeLink(ch)
-  return ns.Link("c", ch.id, "[" .. L[ch.name] .. "]")
+function ns.ChallengeLink(ch, from)
+  return ns.Link("c", ch.id, "[" .. L[ch.name] .. "]", from)
 end
 
-function ns.AchievementLink(a)
-  return ns.Link("a", a.id, "[" .. L[a.name] .. "]")
+function ns.AchievementLink(a, from)
+  return ns.Link("a", a.id, "[" .. L[a.name] .. "]", from)
 end
 
 function ns.PlayerLink(guid)
   return ns.Link("p", guid, ns.Social.ColoredName(guid))
 end
 
-local function Open(kind, id)
+local function Open(kind, id, from)
   if not ns.cdb then return end
-  if kind == "c" then ns.ShowUnlocked({ tab = ns.CHALLENGES_TAB, ch = id })
-  elseif kind == "a" then ns.ShowUnlocked({ tab = ns.TROPHIES_TAB, ach = id })
-  elseif kind == "r" then ns.ShowUnlocked({ tab = ns.TROPHIES_TAB, rank = true })
-  elseif kind == "w" then ns.ShowUnlocked({ tab = ns.CHALLENGES_TAB, champion = true })
-  elseif kind == "p" then ns.ShowUnlocked({ profile = id }) end
+  if kind == "p" then return ns.ShowUnlocked({ profile = id }) end
+  local o
+  if kind == "c" then o = { tab = ns.CHALLENGES_TAB, ch = id }
+  elseif kind == "a" then o = { tab = ns.TROPHIES_TAB, ach = id }
+  elseif kind == "r" then o = { tab = ns.TROPHIES_TAB, rank = true }
+  elseif kind == "w" then o = { tab = ns.CHALLENGES_TAB, champion = true } end
+  if not o then return end
+  -- a friend's news: offer kudos next to it
+  o.kudos = from and ns.Social.FindEvent(from, kind, id)
+  ns.ShowUnlocked(o)
 end
 
 -- The chat frame hands every clicked link to SetItemRef; we look at ours
 -- after the game is done with it
 if SetItemRef then
   hooksecurefunc("SetItemRef", function(link)
-    local kind, id = (link or ""):match("^garrmission:aws:(%a):(.+)$")
-    if kind then Open(kind, id) end
+    local kind, ref = (link or ""):match("^garrmission:aws:(%a):(.+)$")
+    if not kind then return end
+    local id, from = ref, nil
+    if kind ~= "p" then id, from = ref:match("^([^:]+):?(.*)$") end
+    Open(kind, id, from ~= "" and from or nil)
   end)
 end

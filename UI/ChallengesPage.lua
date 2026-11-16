@@ -131,11 +131,11 @@ function ns.BuildChallengesPage(page)
 
   -- Banner click: flash the challenge you just finished (or the champion banner)
   function page:Highlight(o)
-    if o.champion then ns.Flash(banner) return end
+    if o.champion then ns.Flash(banner) return banner end
     for i, c in ipairs(cards) do
       if (o.ch and c.id == o.ch) or (o.tier and i <= 3 and c.tier == o.tier) then
         ns.Flash(c)
-        return
+        return c
       end
     end
   end

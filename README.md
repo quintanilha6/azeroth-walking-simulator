@@ -8,16 +8,16 @@
 
 ## Features
 
-- **Step tracking on foot only.** Nothing counts while you're mounted, on a flight path, in a vehicle, swimming, dead, on auto-run or following someone.
+- **Step tracking that rewards moving.** Steps count on foot, on auto-run, mounted and in travel forms (mounts count at running pace). Nothing counts while you run into a wall, fly, swim, ride a flight path or vehicle, are dead or follow someone.
 - **Activities like Strava.** Start, pause and finish sessions, or let auto mode record from login to logout. Each activity saves steps, distance, moving time, pace and zones.
 - **Weekly challenges** (Bronze, Silver, Gold) and **monthly challenges**, the same for everyone. Finish all three weekly ones to become **Weekly Champion**.
 - **Walker ranks**, from Novice Wanderer to Walking Simulator Champion, plus **40 achievements**.
 - **Banners** when you complete something, and toasts when your friends do.
 - **Leaderboards** for Friends, Guild and Everyone, each by Today, Week, Month or All-time. Shows the top 50 plus your own place, with name search and an "Online now" filter.
-- **Social feed** with Kudos, overtake alerts and a weekly recap.
+- **Social feed** with Kudos (for walks, trophies and challenges), overtake alerts and a weekly recap.
 - **Player profiles:** click anyone on the leaderboard to see their rank, stats, challenges and trophies.
 - **Quick Share** your walk to Say, Party, Raid or Guild chat in two clicks.
-- **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, colored by speed (walking, running, fast, mounted), with auto-run as a cyan dashed line and teleports or flights as white dashed lines, and save it as a screenshot. Open your friends' routes from the feed on the Home tab. Recorded outdoors.
+- **Routes:** see the path you walked drawn over the zone map on a Strava-style route card, colored by speed (walking, running, fast, mounted), with /follow as a cyan dashed line and teleports or flights as white dashed lines, and save it as a screenshot. Open your friends' routes from the feed on the Home tab. Recorded outdoors.
 - **All-time totals** per character and per account, a 7-day chart, streaks and personal records.
 - **Minimap button** and settings in the game's **Options → AddOns** panel.
 - **6 languages:** English, Português (Portugal), Español, Français, Deutsch and Italiano. The addon always uses your game's language.
@@ -40,12 +40,14 @@
 
 ## How steps are counted
 
-WoW has no step counter, so the addon measures how far you really move on foot and divides by a step length. Steps only count when **both** of these are true:
+WoW has no step counter, so the addon measures how far you really move and divides by a step length (1.4 yards walking, 2.0 running, the same for everyone).
 
-- You're holding a movement key yourself (forward, back, strafe or move-and-steer), both mouse buttons, or a controller's movement stick. Auto-run and click-to-move don't count. `/aws debug pad` shows what your controller reports.
-- Your position is actually changing. Running into a wall or in place doesn't count.
+- Walking, running, auto-run, mounts and travel forms (Travel Form, Ghost Wolf...) all count.
+- Anything faster than running counts at **running pace**, so riding is never worth more steps per minute than running. The distance is the real distance.
+- Your position must actually change. Running (or auto-running) into a wall or in place doesn't count.
+- Flight paths, vehicles, flying, swimming, being dead and /follow don't count.
 
-In dungeons the game hides your position, so there the addon uses your movement speed instead. You still need to hold the keys, and counting pauses if you haven't moved the mouse, turned, strafed, jumped, cast or fought for 5 seconds. Nothing counts while you're AFK.
+In dungeons the game hides your position, so there the addon uses your movement speed instead, and counting pauses if you haven't moved the mouse, turned, strafed, jumped, cast or fought for 5 seconds. Nothing counts while you're AFK.
 
 `/aws debug` prints what the counter sees once a second. `/aws debug net` prints what route sharing and kudos send and receive.
 

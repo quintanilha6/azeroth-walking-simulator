@@ -251,7 +251,6 @@ L["Start an activity (1,000+ steps) between 5 and 8 am"] = "Começa uma atividad
 L["Start an activity (1,000+ steps) between midnight and 4 am"] = "Começa uma atividade (1.000+ passos) entre a meia-noite e as 4 da manhã"
 L["Stats"] = "Estatísticas"
 L["Steps"] = "Passos"
-L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Os passos só contam enquanto carregas nas teclas de movimento (ou nos dois botões do rato) e te moves de verdade: não conta corrida automática, paredes, montada, rotas de voo, veículos, natação, morto ou /follow. O comprimento do passo é igual para todos (1,4 jardas a andar, 2,0 a correr), para que todas as classificações sejam justas."
 L["Streak"] = "Série"
 L["Stretch Your Legs"] = "Estica as Pernas"
 L["Swimming"] = "A nadar"
@@ -415,5 +414,12 @@ L["New trophies"] = "Novos troféus"
 
 L["Your last session was saved (%s steps). A new one has started."] = "A tua última sessão foi guardada (%s passos). Começou uma nova."
 
+
+
+L["That channel is used by Azeroth Walking Simulator in the background. Messages can't be sent to it."] = "Esse canal é usado pelo Azeroth Walking Simulator em segundo plano. Não é possível enviar mensagens para ele."
+L["%s gave you kudos for %s!"] = "%s deu-te kudos por %s!"
+L["Kudos to %s"] = "Kudos a %s"
+
+L["Steps count while your character really moves: on foot, auto-run, mounted or in a travel form. Mounts and travel forms count at running pace, so riding is never worth more than running. Walls, flight paths, vehicles, flying, swimming, being dead and /follow don't count. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Os passos contam enquanto a tua personagem se desloca mesmo: a pé, em corrida automática, montada ou numa forma de viagem. Montadas e formas de viagem contam ao ritmo de corrida, por isso montar nunca vale mais do que correr. Paredes, voos, veículos, voar, nadar, estar morto e /follow não contam. O comprimento do passo é igual para todos (1,4 jd a andar, 2,0 jd a correr), por isso todas as tabelas são justas."
 
 ns.RegisterLocale("ptPT", L)

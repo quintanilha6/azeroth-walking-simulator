@@ -251,7 +251,6 @@ L["Start an activity (1,000+ steps) between 5 and 8 am"] = "Commencez une activi
 L["Start an activity (1,000+ steps) between midnight and 4 am"] = "Commencez une activité (1 000+ pas) entre minuit et 4 h du matin"
 L["Stats"] = "Stats"
 L["Steps"] = "Pas"
-L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Les pas ne comptent que si vous maintenez les touches de déplacement (ou les deux boutons de la souris) et bougez vraiment : pas la course automatique, les murs, la monture, les trajets aériens, les véhicules, la nage, la mort ni /follow. La longueur de pas est la même pour tous (1,4 yard en marchant, 2,0 yards en courant) pour que tous les classements soient équitables."
 L["Streak"] = "Série"
 L["Stretch Your Legs"] = "Dégourdissez-vous les jambes"
 L["Swimming"] = "Nage"
@@ -415,5 +414,12 @@ L["New trophies"] = "Nouveaux trophées"
 
 L["Your last session was saved (%s steps). A new one has started."] = "Votre dernière session a été enregistrée (%s pas). Une nouvelle a commencé."
 
+
+
+L["That channel is used by Azeroth Walking Simulator in the background. Messages can't be sent to it."] = "Ce canal est utilisé par Azeroth Walking Simulator en arrière-plan. Impossible d'y envoyer des messages."
+L["%s gave you kudos for %s!"] = "%s vous a donné des kudos pour %s !"
+L["Kudos to %s"] = "Kudos à %s"
+
+L["Steps count while your character really moves: on foot, auto-run, mounted or in a travel form. Mounts and travel forms count at running pace, so riding is never worth more than running. Walls, flight paths, vehicles, flying, swimming, being dead and /follow don't count. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "Les pas comptent tant que votre personnage se déplace vraiment : à pied, en course automatique, sur une monture ou en forme de voyage. Les montures et formes de voyage comptent au rythme de la course, donc monter ne rapporte jamais plus que courir. Les murs, les vols, les véhicules, voler, nager, être mort et /follow ne comptent pas. La longueur de pas est la même pour tous (1,4 yd marche, 2,0 yd course), donc tous les classements sont équitables."
 
 ns.RegisterLocale("frFR", L)

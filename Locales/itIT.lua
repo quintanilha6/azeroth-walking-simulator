@@ -251,7 +251,6 @@ L["Start an activity (1,000+ steps) between 5 and 8 am"] = "Inizia un'attività 
 L["Start an activity (1,000+ steps) between midnight and 4 am"] = "Inizia un'attività (1.000+ passi) tra mezzanotte e le 4 del mattino"
 L["Stats"] = "Statistiche"
 L["Steps"] = "Passi"
-L["Steps only count while you hold movement keys (or both mouse buttons) and really move: not auto-run, walls, mounted, flight paths, vehicles, swimming, dead or /follow. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "I passi contano solo mentre tieni premuti i tasti di movimento (o entrambi i pulsanti del mouse) e ti muovi davvero: non con la corsa automatica, contro i muri, in sella, sulle rotte di volo, sui veicoli, nuotando, da morto o con /follow. La lunghezza del passo è uguale per tutti (1,4 iarde camminando, 2,0 correndo), così tutte le classifiche sono eque."
 L["Streak"] = "Serie"
 L["Stretch Your Legs"] = "Sgranchisciti le Gambe"
 L["Swimming"] = "Nuoto"
@@ -415,5 +414,12 @@ L["New trophies"] = "Nuovi trofei"
 
 L["Your last session was saved (%s steps). A new one has started."] = "La tua ultima sessione è stata salvata (%s passi). Ne è iniziata una nuova."
 
+
+
+L["That channel is used by Azeroth Walking Simulator in the background. Messages can't be sent to it."] = "Quel canale è usato da Azeroth Walking Simulator in background. Non si possono inviare messaggi."
+L["%s gave you kudos for %s!"] = "%s ti ha dato kudos per %s!"
+L["Kudos to %s"] = "Kudos a %s"
+
+L["Steps count while your character really moves: on foot, auto-run, mounted or in a travel form. Mounts and travel forms count at running pace, so riding is never worth more than running. Walls, flight paths, vehicles, flying, swimming, being dead and /follow don't count. Step length is the same for everyone (1.4 yd walking, 2.0 yd running) so all leaderboards are fair."] = "I passi contano finché il tuo personaggio si sposta davvero: a piedi, con la corsa automatica, in cavalcatura o in forma di viaggio. Cavalcature e forme di viaggio contano al ritmo della corsa, quindi cavalcare non vale mai più che correre. Muri, voli, veicoli, volare, nuotare, essere morti e /follow non contano. La lunghezza del passo è uguale per tutti (1,4 yd camminando, 2,0 yd correndo), quindi tutte le classifiche sono eque."
 
 ns.RegisterLocale("itIT", L)

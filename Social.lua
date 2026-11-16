@@ -289,6 +289,38 @@ local function JoinChannel()
   end)
 end
 
+-- Is this chat channel (number or name) one of ours?
+local function IsOurChannel(target)
+  if not target or not GetChannelName then return false end
+  local _, name = GetChannelName(target)
+  return type(name) == "string" and name:lower():find("^awswalkers") ~= nil
+end
+
+-- The hidden channel still gets a number (/4 etc.), so it's easy to type into
+-- by accident, and everyone with the addon would get the message. If a chat
+-- box switches to it, switch it back to Say and drop the text.
+local guardedBoxes = {}
+local function GuardChatBoxes()
+  for i = 1, (NUM_CHAT_WINDOWS or 10) do
+    local box = _G["ChatFrame" .. i .. "EditBox"]
+    if box and not guardedBoxes[box] and box.HookScript then
+      guardedBoxes[box] = true
+      box:HookScript("OnAttributeChanged", function(self, attr)
+        if attr ~= "chatType" and attr ~= "channelTarget" then return end
+        if self:GetAttribute("chatType") ~= "CHANNEL" or not IsOurChannel(self:GetAttribute("channelTarget")) then
+          return
+        end
+        self:SetAttribute("chatType", "SAY")
+        self:SetText("")
+        if ChatEdit_UpdateHeader then ChatEdit_UpdateHeader(self)
+        elseif self.UpdateHeader then self:UpdateHeader() end
+        ns.Print(L["That channel is used by Azeroth Walking Simulator in the background. Messages can't be sent to it."])
+      end)
+    end
+  end
+end
+S.GuardChatBoxes = GuardChatBoxes
+
 -- Kicked or banned later on: rejoin (or move on) once a minute
 local function WatchChannel()
   if ns.settings.globalBoard and JoinTemporaryChannel and not InChannel() then JoinChannel() end
@@ -313,6 +345,7 @@ end
 -- A  activity: id;steps;dist;moving;elapsed;finish;zone,zone
 -- K  kudos for activity id (sent only to its owner)
 -- C  event: kind(c=challenge, w=weekly champion, a=achievement, r=rank);id;periodKey
+-- KE kudos for an event: kind;id;periodKey;ownerGUID (2.8.0+, features >= 2)
 ---------------------------------------------------------------------------
 local function Int(n) return tostring(math.floor((n or 0) + 0.5)) end
 local function Msg(kind, ...) return table.concat({ kind, VERSION, S.MyGUID() or "", ... }, ";") end
@@ -423,8 +456,9 @@ local REQUEST_COOLDOWN = 20 -- ignore the same request again this soon
 local pendingRoutes = {} -- ["guid:id"] = { item, chunks, got, onProgress, onDone, deadline }
 local answered = {}      -- ["requester:id"] = time we last sent that route
 
--- Features this version supports, sent with your stats. 1 = route sharing.
-S.FEATURES = 1
+-- Features this version supports, sent with your stats.
+-- 1 = route sharing, 2 = kudos for trophies, challenges and ranks.
+S.FEATURES = 2
 
 -- Someone asked for one of your routes
 function S.HandleRouteRequest(guid, p, dest)
@@ -532,6 +566,34 @@ function S.GiveKudos(item)
   ns.cdb.kudosGiven = ns.cdb.kudosGiven + 1
   ns.Achievements.Check()
   ns.OnSocialChanged()
+end
+
+-- Kudos for a friend's news (trophy, challenge, champion, rank): only
+-- friends on 2.8.0+ can receive them
+function S.CanEventKudos(item)
+  if not item or not item.event or item.kudos then return false end
+  local p = ns.db.social.people[item.from]
+  return p ~= nil and (p.features or 0) >= 2 and S.DestFor(p) ~= nil
+end
+
+function S.GiveEventKudos(item)
+  if not S.CanEventKudos(item) then return end
+  item.kudos = true
+  local p = ns.db.social.people[item.from]
+  local dest = S.DestFor(p)
+  NetLog("event kudos to %s via %s", S.Short(p.name), DestText(dest))
+  Queue(Msg("KE", item.kind, item.eid, item.period or "", item.from), dest)
+  ns.cdb.kudosGiven = ns.cdb.kudosGiven + 1
+  ns.Achievements.Check()
+  ns.OnSocialChanged()
+end
+
+-- The newest feed entry for a friend's event (for chat links)
+function S.FindEvent(guid, kind, id)
+  if not guid or not ns.db then return end
+  for _, f in ipairs(ns.db.social.feed) do
+    if f.event and f.from == guid and f.kind == kind and (kind == "w" or f.eid == id) then return f end
+  end
 end
 
 ---------------------------------------------------------------------------
@@ -748,23 +810,66 @@ local function HandleKudos(guid, p)
   end
 end
 
--- Text for a friend's challenge/achievement/rank event, or nil if unknown
-local function EventText(kind, id)
+-- Text for a friend's challenge/achievement/rank event, or nil if unknown.
+-- guid: whose event it is; the links carry it so clicking one offers kudos.
+local function EventText(kind, id, guid)
   if kind == "c" then
     local ch = ns.Challenges.ById(id)
     if ch then
-      return (L["completed the %s challenge |cffffd100%s|r"]):format(ns.Challenges.TierName(ch), ns.ChallengeLink(ch)),
+      return (L["completed the %s challenge |cffffd100%s|r"]):format(ns.Challenges.TierName(ch), ns.ChallengeLink(ch, guid)),
         ns.Challenges.TIERS[ch.tier].icon
     end
   elseif kind == "w" then
-    return ns.Link("w", "champion", L["became |cffffd100Weekly Champion|r!"]), "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    return ns.Link("w", "champion", L["became |cffffd100Weekly Champion|r!"], guid), "Interface\\Icons\\INV_Misc_Head_Dragon_01"
   elseif kind == "a" then
     local a = ns.Achievements.ById(id)
-    if a then return (L["earned |cffffd100%s|r"]):format(ns.AchievementLink(a)), a.icon end
+    if a then return (L["earned |cffffd100%s|r"]):format(ns.AchievementLink(a, guid)), a.icon end
   elseif kind == "r" then
-    return L["ranked up to "] .. ns.Link("r", id, "[" .. ns.Achievements.RankColored(tonumber(id)) .. "]"),
+    return L["ranked up to "] .. ns.Link("r", id, "[" .. ns.Achievements.RankColored(tonumber(id)) .. "]", guid),
       "Interface\\Icons\\Ability_Rogue_Sprint"
   end
+end
+
+-- Short name of one of your own events, for "X gave you kudos for ..."
+local function EventLabel(kind, id)
+  if kind == "c" then
+    local ch = ns.Challenges.ById(id)
+    return ch and ns.ChallengeLink(ch)
+  elseif kind == "w" then
+    return ns.Link("w", "champion", "[" .. L["Weekly Champion"] .. "]")
+  elseif kind == "a" then
+    local a = ns.Achievements.ById(id)
+    return a and ns.AchievementLink(a)
+  elseif kind == "r" then
+    local r = tonumber(id)
+    return r and ns.Link("r", id, "[" .. ns.Achievements.RankColored(r) .. "]")
+  end
+end
+
+-- A friend gave you kudos for one of your events
+local function HandleEventKudos(guid, p)
+  local kind, id, period, owner = p[4], p[5], p[6] or "", p[7]
+  if owner ~= S.MyGUID() then return end
+  -- only for things you really did
+  if kind == "a" and not ns.cdb.achievements[id] then return end
+  if kind == "r" and (tonumber(id) or 99) > ns.Achievements.MyRank() then return end
+  if (kind == "c" or kind == "w") and not LivePeriods()[period] then return end
+  local label = EventLabel(kind, id)
+  if not label then return end
+
+  ns.cdb.eventKudos = ns.cdb.eventKudos or {}
+  local key = kind .. ":" .. id .. ":" .. period
+  local got = ns.cdb.eventKudos[key] or {}
+  if got[guid] then return end -- one per person
+  got[guid] = true
+  ns.cdb.eventKudos[key] = got
+  ns.cdb.kudosReceived = ns.cdb.kudosReceived + 1
+
+  local text = (L["%s gave you kudos for %s!"]):format(ns.PlayerLink(guid), label)
+  ns.Print(text)
+  ns.Banner.Toast({ title = L["Kudos!"], text = text, icon = "Interface\\Icons\\Spell_Holy_GreaterHeal",
+    open = { profile = guid } })
+  ns.Achievements.Check()
 end
 
 local function HandleEvent(guid, p)
@@ -778,7 +883,7 @@ local function HandleEvent(guid, p)
   else
     period = "" -- achievements and ranks don't belong to a period
   end
-  local text, icon = EventText(kind, id)
+  local text, icon = EventText(kind, id, guid)
   if not text then return end
 
   if kind == "c" or kind == "w" then
@@ -842,6 +947,8 @@ local function OnMessage(msg, name, dest, via)
     HandleActivity(guid, p)
   elseif kind == "K" then
     HandleKudos(guid, p)
+  elseif kind == "KE" then
+    HandleEventKudos(guid, p)
   elseif kind == "C" then
     HandleEvent(guid, p)
   elseif kind == "RQ" then
@@ -999,7 +1106,11 @@ ev:SetScript("OnEvent", function(_, event, a1, a2, a3, a4)
     Recipients() -- fills the friend list cache
     Prune()
     C_Timer.After(6, JoinChannel)
-    C_Timer.NewTicker(60, WatchChannel)
+    GuardChatBoxes()
+    C_Timer.NewTicker(60, function()
+      WatchChannel()
+      GuardChatBoxes() -- chat windows opened since
+    end)
     C_Timer.After(10, SayHello)
     C_Timer.NewTicker(BROADCAST_INTERVAL, function()
       S.BroadcastStats(false)
